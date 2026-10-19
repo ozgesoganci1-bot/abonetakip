@@ -1,0 +1,145 @@
+// AboneTakip veritabanı şeması (Prisma 7)
+// Veritabanı adresi burada yazmaz, prisma.config.ts üzerinden .env'den okunur.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------- Sabit değer listeleri ----------
+
+enum Role {
+  manager
+  finance
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELED
+}
+
+enum PlanInterval {
+  MONTHLY
+  YEARLY
+}
+
+enum EventType {
+  STARTED
+  RENEWED
+  CANCELED
+}
+
+// ---------- Tablolar ----------
+
+// Firma (kiracı). Bu tabloda tenantId yoktur, id'nin kendisi kiracıdır.
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  cac       Int      @default(0) // Müşteri edinme maliyeti (TL, tam sayı)
+  createdAt DateTime @default(now())
+
+  users         User[]
+  customers     Customer[]
+  plans         Plan[]
+  subscriptions Subscription[]
+  events        SubscriptionEvent[]
+
+  @@map("tenants")
+}
+
+// Firma kullanıcısı (manager veya finance)
+model User {
+  id           String   @id @default(cuid())
+  tenantId     String
+  email        String   @unique
+  passwordHash String // bcrypt ile özetlenmiş parola, düz metin saklanmaz
+  name         String?
+  role         Role
+  createdAt    DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@map("users")
+}
+
+// Firmanın müşterisi. Silinmez, isActive=false ile pasife alınır.
+model Customer {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  email     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id])
+  subscriptions Subscription[]
+
+  // Aynı firmaya ait olduğunu veritabanında garanti etmek için (id + tenantId) birlikte benzersiz
+  @@unique([id, tenantId])
+  @@index([tenantId])
+  @@map("customers")
+}
+
+// Abonelik planı. Fiyat TL cinsinden tam sayıdır. Silinmez, pasife alınır.
+model Plan {
+  id        String       @id @default(cuid())
+  tenantId  String
+  name      String
+  price     Int // TL, kuruş yok
+  interval  PlanInterval
+  isActive  Boolean      @default(true)
+  createdAt DateTime     @default(now())
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id])
+  subscriptions Subscription[]
+
+  @@unique([id, tenantId])
+  @@index([tenantId])
+  @@map("plans")
+}
+
+// Müşterinin bir plana aboneliği
+model Subscription {
+  id         String             @id @default(cuid())
+  tenantId   String
+  customerId String
+  planId     String
+  status     SubscriptionStatus @default(ACTIVE)
+  startedAt  DateTime           @default(now())
+  canceledAt DateTime?
+  createdAt  DateTime           @default(now())
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id])
+  // Müşteri ve plan, aboneliğin firmasıyla aynı firmaya ait olmak zorunda
+  customer Customer @relation(fields: [customerId, tenantId], references: [id, tenantId])
+  plan     Plan     @relation(fields: [planId, tenantId], references: [id, tenantId])
+
+  events SubscriptionEvent[]
+
+  @@unique([id, tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, customerId])
+  @@index([tenantId, planId])
+  @@map("subscriptions")
+}
+
+// Aboneliğin yaşam döngüsü olayları (başladı, yenilendi, iptal edildi)
+model SubscriptionEvent {
+  id             String    @id @default(cuid())
+  tenantId       String
+  subscriptionId String
+  type           EventType
+  createdAt      DateTime  @default(now())
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id])
+  subscription Subscription @relation(fields: [subscriptionId, tenantId], references: [id, tenantId])
+
+  @@index([tenantId, type, createdAt])
+  @@index([subscriptionId])
+  @@map("subscription_events")
+}
