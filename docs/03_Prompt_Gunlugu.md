@@ -165,7 +165,4 @@ Her tur çıktısı için işaretle:
 
 Her günün promptu ve çıktısı için aşağıya kısa kayıt ekle (ayrıntı `04_14_Gunluk_Prompt_Plani.md` dosyasında).
 
-| Gün | Kullandığım prompt (özet) | Sonuç | Düzeltme gerekti mi? |
-|---|---|---|---|
-| 1 | | | |
-| 2 | | | |
+| 1 | Gün 1 promptu: 7 issue ve README taslağı istendi | 7 issue ve README üretildi | Evet: gün aralıkları, README bağlantıları, riskli abonelik kuralı ve MRR grafiği süresi planımıza göre düzeltildi |
