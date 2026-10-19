@@ -1,36 +1,43 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AboneTakip
 
-## Getting Started
+## Proje özeti
+AboneTakip, küçük yazılım firmaları için çok kiracılı (multi-tenant) bir abonelik takip SaaS'ıdır. Firmalar müşterilerini, planlarını ve aboneliklerini yönetir; MRR, churn, LTV ve LTV/CAC metriklerini tek bir dashboardda izler. Her firma yalnızca kendi verisini görür.
 
-First, run the development server:
+Sunucu Tabanlı Programlama dersi dönem projesidir (tek geliştirici, 2 hafta).
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Teknoloji
+- Next.js (App Router) ve TypeScript
+- PostgreSQL (Neon) ve Prisma
+- Barındırma: Render (PaaS), sürekli açık Node sunucusu
+- Gerçek zamanlı uyarılar: Server-Sent Events (SSE)
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Kurulum
+_Bu bölüm Gün 13'te doldurulacak._
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Canlı adres
+_Henüz yayında değil._
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Rol ve yetkiler
 
-## Learn More
+| Yetki | manager | finance |
+|---|---|---|
+| Dashboard görüntüleme | ✅ | ✅ |
+| Müşteri, plan ve abonelik kayıtları (ekleme, düzenleme) | ✅ | ✅ |
+| Müşteri ve plan pasife alma | ✅ | ❌ |
+| Ayarlar (CAC dahil) | ✅ | ❌ |
+| Kullanıcı yönetimi | ✅ | ❌ |
 
-To learn more about Next.js, take a look at the following resources:
+Rol kontrolü sunucu tarafında yapılır. Bir firmanın kullanıcısı başka bir firmanın verisine erişemez.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Kapsam (MoSCoW)
+- **MUST:** kayıt, giriş ve roller; müşteri ve plan yönetimi; abonelik yaşam döngüsü; KPI dashboard; kiracı izolasyonu
+- **SHOULD:** SSE ile iptal uyarısı, aylık MRR grafiği
+- **WON'T:** ödeme entegrasyonu, çoklu para birimi, e-posta bildirimi, mikroservis
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Dokümanlar
+- [Proje önerisi](docs/01_Proje_Onerisi.md)
+- [Mimari Karar Kaydı (ADR)](docs/02_ADR.md)
+- [Prompt Günlüğü](docs/03_Prompt_Gunlugu.md)
+- [14 günlük prompt planı](docs/04_14_Gunluk_Prompt_Plani.md)
+- [Kurulum rehberi](docs/00_Kurulum_Rehberi.md)
+- [AI talimat dosyası](CLAUDE.md) 
