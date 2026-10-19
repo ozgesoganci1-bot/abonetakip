@@ -63,6 +63,9 @@
 - Oturum çerezi httpOnly olmalıdır.
 - Tüm kullanıcı girdileri sunucuda doğrulanır.
 - Test ve demo verisi sahte ama gerçekçi olur.
+- `.env.example` yalnızca yer tutucu içerir (`[NEON_POOLED_URL]`). Gerçek adres veya parola asla yazılmaz. Commit öncesi `git grep -n -e "neon.tech" -e "npg_"` ile kontrol et.
+- Terminal komutları `.env` içeriğini (parola dahil) ekrana basmamalı.
+- Prisma geçişlerinde `migrate dev` her zaman `--create-only` ile çalıştırılır. `migration.sql` içinde `subscriptions_one_active_per_customer` dizinini silen bir `DROP INDEX` satırı varsa o satır silinir (bu dizin elle eklenmiştir, şemada yoktur).
 
 ## Gerçek zamanlı
 - Uyarılar SSE ile sunucudan istemciye gönderilir. WebSocket ve polling kullanma.

@@ -15,7 +15,12 @@ Sunucu Tabanlı Programlama dersi dönem projesidir (tek geliştirici, 2 hafta).
 _Bu bölüm Gün 13'te doldurulacak._
 
 ## Canlı adres
-_Henüz yayında değil._
+https://abonetakip.onrender.com/
+
+Not: Ücretsiz planda site 15 dakika kullanılmayınca uyur, ilk açılış yaklaşık 1 dakika sürebilir.
+
+## Veritabanı geçişi
+Prisma geçişleri (`npx prisma migrate dev`) Render'da değil, geliştiricinin kendi bilgisayarında çalıştırılır. Render derlemesi yalnızca `npx prisma generate` ve `npm run build` yapar. Bağlantı adresleri `DATABASE_URL` (havuzlu) ve `DIRECT_URL` (doğrudan) ortam değişkenlerinden okunur. Gerçek değerler repoda yer almaz, örnek için `.env.example` dosyasına bakın.
 
 ## Rol ve yetkiler
 
