@@ -1,4 +1,6 @@
 import { requireUser } from "@/lib/auth";
+import SayfaBasligi from "@/components/ui/SayfaBasligi";
+import BosDurum from "@/components/ui/BosDurum";
 
 // Yer tutucu sayfa. KPI göstergeleri 8-9. günlerde eklenecek.
 export default async function DashboardSayfasi() {
@@ -8,10 +10,14 @@ export default async function DashboardSayfasi() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold">Dashboard</h1>
-      <p className="mt-2 text-gray-600">
-        KPI göstergeleri ilerleyen günlerde eklenecek.
-      </p>
+      <SayfaBasligi
+        baslik="Dashboard"
+        aciklama="Firmanızın abonelik göstergeleri burada görünecek."
+      />
+      <BosDurum
+        baslik="KPI göstergeleri henüz yok"
+        aciklama="MRR, churn ve LTV göstergeleri ilerleyen günlerde eklenecek."
+      />
     </div>
   );
 }

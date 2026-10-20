@@ -1,5 +1,7 @@
 import { requireManager } from "@/lib/auth";
 import YetkiYok from "../YetkiYok";
+import SayfaBasligi from "@/components/ui/SayfaBasligi";
+import BosDurum from "@/components/ui/BosDurum";
 
 // Yer tutucu sayfa. Kullanıcı yönetimi ilerleyen günlerde eklenecek.
 // Yalnızca manager görür, finance kullanıcısına "yetkiniz yok" mesajı gösterilir.
@@ -9,8 +11,14 @@ export default async function KullanicilarSayfasi() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold">Kullanıcılar</h1>
-      <p className="mt-2 text-gray-600">Bu sayfa ilerleyen günlerde doldurulacak.</p>
+      <SayfaBasligi
+        baslik="Kullanıcılar"
+        aciklama="Firmanızın kullanıcıları ve rolleri."
+      />
+      <BosDurum
+        baslik="Kullanıcı yönetimi henüz yok"
+        aciklama="Bu sayfa ilerleyen günlerde doldurulacak."
+      />
     </div>
   );
 }
