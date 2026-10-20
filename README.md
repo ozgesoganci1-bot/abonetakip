@@ -34,6 +34,13 @@ Prisma geçişleri (`npx prisma migrate dev`) Render'da değil, geliştiricinin 
 
 Rol kontrolü sunucu tarafında yapılır. Bir firmanın kullanıcısı başka bir firmanın verisine erişemez.
 
+## Giriş, kayıt ve oturum
+- Kayıt: `/kayit` sayfasında firma ve ilk kullanıcı (yönetici) birlikte oluşturulur. Giriş: `/giris`. Oturumsuz kullanıcı panel sayfalarında otomatik olarak `/giris` sayfasına yönlendirilir.
+- Oturum, imzalı ve httpOnly bir çerezde tutulur. Parolalar bcrypt ile özetlenir, düz metin saklanmaz.
+- Panel sayfaları: Dashboard, Müşteriler, Planlar, Abonelikler (tüm rollere açık). Ayarlar ve Kullanıcılar yalnızca yöneticiye açıktır, finans kullanıcısı "Bu sayfaya erişim yetkiniz yok" mesajını görür. Sayfa içerikleri sonraki günlerde doldurulacak.
+- Yerelde çalıştırmak için `.env` dosyasında üç değişken gerekir: `DATABASE_URL`, `DIRECT_URL`, `SESSION_SECRET`. Örnek için `.env.example` dosyasına bak. Gerçek değerler asla depoya yazılmaz.
+- `SESSION_SECRET` için rastgele bir değer üretmek: `openssl rand -base64 32`. Üretilen değeri yalnızca `.env` dosyasına ve Render'daki ortam değişkenine koy.
+
 ## Kapsam (MoSCoW)
 - **MUST:** kayıt, giriş ve roller; müşteri ve plan yönetimi; abonelik yaşam döngüsü; KPI dashboard; kiracı izolasyonu
 - **SHOULD:** SSE ile iptal uyarısı, aylık MRR grafiği
