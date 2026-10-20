@@ -110,4 +110,4 @@
 
 ### Bilinen açıklar
 - Geliştirme modunda `pg` kütüphanesi Neon adresindeki `sslmode=require` için uyarı veriyor. Çalışmayı etkilemiyor. Gün 12'de `sslmode=verify-full` ile test edilecek.
-- Ev klasöründeki ayrı bir `package-lock.json` yüzünden Next.js uyarı veriyor, zararsız.
+- Ev klasöründe yanlışlıkla kalmış bir `package-lock.json` Next.js uyarısına yol açıyordu. 20 Ekim günü `~/_eski_npm` klasörüne taşınarak çözüldü.
