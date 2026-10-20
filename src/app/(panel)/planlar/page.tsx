@@ -1,4 +1,6 @@
 import { requireUser } from "@/lib/auth";
+import SayfaBasligi from "@/components/ui/SayfaBasligi";
+import BosDurum from "@/components/ui/BosDurum";
 
 // Yer tutucu sayfa. Plan yönetimi 4. günde yapılacak.
 export default async function PlanlarSayfasi() {
@@ -6,8 +8,14 @@ export default async function PlanlarSayfasi() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold">Planlar</h1>
-      <p className="mt-2 text-gray-600">Bu sayfa ilerleyen günlerde doldurulacak.</p>
+      <SayfaBasligi
+        baslik="Planlar"
+        aciklama="Müşterilerinize sunduğunuz abonelik planları."
+      />
+      <BosDurum
+        baslik="Henüz plan yok"
+        aciklama="Plan yönetimi ilerleyen günlerde eklenecek."
+      />
     </div>
   );
 }
