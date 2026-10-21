@@ -3,6 +3,7 @@
 > 4. hafta, Blok 6 etkinliği: bir promptu üç turda iyileştirme.
 > **Kural:** "Çıktı özeti" ve "Değerlendirme" alanlarını yapay zekâyı gerçekten çalıştırdıktan sonra kendi gözlemlerinle doldur. Promptları ve çıktıları aynen sakla, sonradan düzeltme.
 > **Görev:** AboneTakip için veri modeli ve merkezi tenant filtre yardımcısı (proje takviminde Gün 2 ve 3).
+> **Tam kayıt:** Promptların ve yapay zekâ cevaplarının günlere göre tam metni için [prompt_cevap](../prompt_cevap/README.md) klasörüne bakın.
 
 **Kullanılan araç ve model:** [örn. Claude, sürüm]
 **Tarih:** [Tarih]
