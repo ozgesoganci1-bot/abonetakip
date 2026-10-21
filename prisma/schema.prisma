@@ -116,6 +116,8 @@ model Subscription {
   planId     String
   status     SubscriptionStatus @default(ACTIVE)
   startedAt  DateTime           @default(now())
+  // Mevcut dönemin bitişi: başlatmada ve her yenilemede güncellenir (UTC)
+  currentPeriodEnd DateTime
   canceledAt DateTime?
   createdAt  DateTime           @default(now())
 

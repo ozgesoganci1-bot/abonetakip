@@ -8,16 +8,20 @@
 // listesinde olduğu için filtreye tenantId otomatik eklenir: başka firmanın
 // abonelikleri hiçbir zaman sayılmaz.
 //
-// Abonelikler Gün 5'te yazılacak. O zamana kadar tablo boş olduğu için sonuç
-// her zaman "yok" (false) çıkar.
+// DURUM (Gün 5): Abonelikler artık oluşturuluyor (bkz. abonelikler/actions.ts),
+// bu yüzden kontrol gerçek veriyle çalışır.
 //
-// GÜN 5 NOTU:
-// - Abonelik BAŞLATILIRKEN müşterinin ve planın isActive=true olduğu kontrol edilmeli.
-//   Pasife alma "önce kontrol et, sonra güncelle" şeklinde iki adımdır. Aynı anda biri
-//   pasife alırken diğeri abonelik başlatırsa pasif kayda aktif abonelik bağlanabilir.
-//   Abonelik başlatmadaki isActive kontrolü bu açığı karşı taraftan kapatır.
-// - Aynı kısa pencere plan fiyatı değiştirilirken de vardır. Gün 5'te abonelik
-//   başlatma ve bu kontrol aynı veritabanı işlemi (transaction) içinde düşünülebilir.
+// Pasif kayda aktif abonelik bağlanmasını engelleyen karşı taraf:
+// - abonelikBaslat, abonelik kaydını yazdıktan sonra AYNI veritabanı işleminde
+//   müşterinin ve planın hâlâ isActive=true olduğunu yeniden doğrular. Değilse
+//   işlem geri alınır.
+//
+// BİLİNEN SINIR (docs/02_ADR.md'de de yazılıdır):
+// Pasife alma "önce kontrol et, sonra güncelle" şeklinde iki adımdır. Pasife alma
+// ile abonelik başlatma TAM AYNI ANDA gelirse, ikisi de birbirinin değişikliğini
+// göremeden tamamlanabilir ve küçük bir pencere kalır. Bunu tamamen kapatmak satır
+// kilidi (SELECT ... FOR UPDATE) gerektirir; o da ham SQL demektir ve projede ham
+// SQL yasaktır (bkz. tenant.ts). Bu risk bilinçli olarak kabul edilmiştir.
 
 import { getTenantDb } from "./tenant";
 
