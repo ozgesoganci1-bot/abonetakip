@@ -3,9 +3,19 @@
 > **Araç:** Claude (claude.ai), "SUNUCU TABANLI PROGRAMLAMA - SaaS PROJESİ" Project'i içindeki sohbetler.
 > **Tarih:** 21 Eki 2026 (Türkiye saati). **Kapsam:** 70 prompt ve 69 cevap.
 > Kutulardaki metin benim yazdığım prompttur (olduğu gibi). Girintili (`>` ile başlayan) alanlar Claude'un cevabıdır, başlık, tablo ve kod blokları orijinal Markdown'dır. Ekran görüntüleri metin olmadığı için `[ekran görüntüsü]` satırı olarak işaretlenmiştir. Yapay zekânın iç düşünme adımları ve araç çağrıları dahil değildir.
-> Gizli bilgi taraması yapılmıştır. Mac kullanıcı adı, veritabanı sunucu adı ve parola benzeri değerler maskelenmiştir.
+> Gizli bilgi taraması yapılmıştır. Mac kullanıcı adı, okul kısaltması, veritabanı sunucu adı ve parola benzeri değerler maskelenmiştir.
 > Bu dosya, dışa aktarma alındığı ana kadar olan sohbeti içerir (21 Ekim 2026 ~20:37). Sonraki küçük belge adımları (ADR, README, PR) sonradan eklenebilir.
 
+
+## Bu günün özeti
+
+_Bu bölümü ben yazdım, yapay zekâ cevabı değildir. Kaynağı Prompt Günlüğü'dür._
+
+| | |
+|---|---|
+| **Ne istendi** | Abonelik yaşam döngüsü ve olay kaydı |
+| **Ne üretildi** | `currentPeriodEnd` sütunu için migration, dönem hesabı (saf fonksiyon ve 8 birim testi), başlat/yenile/iptal işlemleri (abonelik ve olay tek transaction'da), abonelik listesi ve formu üretildi |
+| **Düzeltme gerekti mi** | Evet: promptta `currentPeriodEnd` isteniyordu ama şemada yoktu, plan aşamasında fark edilip migration eklendi. Projede test aracı yoktu, yeni paket eklenmeden Node'un yerleşik `node --test` aracı ve `allowImportingTsExtensions` ayarı kullanıldı. Çift tıklamaya karşı koşullu güncelleme (`updateMany` ile durum ve bitiş koşulu) yazıldı. İlk tenant izolasyonu denemesinde (D1) gizli alan değiştirilemediği için kendi aboneliği yenilenmişti, Console ile tekrarlanıp doğrulandı. Geçerli/geçersiz geçiş testleri, Gün 4 kilitleri ve 3 izolasyon senaryosu geçti, canlıda başlat ve yenile çalıştı |
 
 ## Ana sohbet: Gün 5 planı, kod, testler ve kayıtlar
 
@@ -3737,11 +3747,3 @@ generated package-lock.json public tsconfig.tsbuildinfo
 >
 > **Varsayım:** Dışa aktarma dosyasında sohbetlerin tüm mesajlarının metin olarak geleceğini varsayıyorum. Ekran görüntüleri büyük ihtimalle gelmez, onları `[ekran görüntüsü]` satırı olarak işaretlerim.
 
-
-## Sonuç
-
-| | |
-|---|---|
-| **Ne istendi** | Abonelik yaşam döngüsü ve olay kaydı |
-| **Ne üretildi** | `currentPeriodEnd` sütunu için migration, dönem hesabı (saf fonksiyon ve 8 birim testi), başlat/yenile/iptal işlemleri (abonelik ve olay tek transaction'da), abonelik listesi ve formu üretildi |
-| **Düzeltme gerekti mi** | Evet: promptta `currentPeriodEnd` isteniyordu ama şemada yoktu, plan aşamasında fark edilip migration eklendi. Projede test aracı yoktu, yeni paket eklenmeden Node'un yerleşik `node --test` aracı ve `allowImportingTsExtensions` ayarı kullanıldı. Çift tıklamaya karşı koşullu güncelleme (`updateMany` ile durum ve bitiş koşulu) yazıldı. İlk tenant izolasyonu denemesinde (D1) gizli alan değiştirilemediği için kendi aboneliği yenilenmişti, Console ile tekrarlanıp doğrulandı. Geçerli/geçersiz geçiş testleri, Gün 4 kilitleri ve 3 izolasyon senaryosu geçti, canlıda başlat ve yenile çalıştı |

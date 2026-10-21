@@ -23,13 +23,15 @@ Sonraki günler çalışma ilerledikçe bu klasöre eklenecektir.
 - **Prompt:** benim yazdığım metin, kutu içinde ve olduğu gibi.
 - **Claude cevabı:** girintili (`>` ile başlayan) alan. Başlıklar, tablolar ve kod blokları Claude'un yazdığı orijinal Markdown'dır.
 - Bir günün işi birden çok sohbette yapıldıysa (örneğin plan ayrı bir sohbette, uygulama ana sohbette) dosyada her sohbet ayrı bölümdür.
-- **Sonuç:** o gün ne istendi, ne üretildi, ne düzeltildi. Bu bölümü ben yazdım, yapay zekâ cevabı değildir. Kaynağı [Prompt Günlüğü](../docs/03_Prompt_Gunlugu.md)'dür.
+- **Bu günün özeti:** her dosyanın başında, o gün ne istendi, ne üretildi, ne düzeltildi. Bu bölümü ben yazdım, yapay zekâ cevabı değildir. Kaynağı [Prompt Günlüğü](../docs/03_Prompt_Gunlugu.md)'dür.
+- Sohbetlerde kısa tepkiler ("böyle oldu", "tamam", "çıktı yok") ve günlük konuşma ifadeleri bulunur. Bunlar gerçek çalışma akışının parçası olduğu için olduğu gibi bırakılmıştır.
 
 ## Kapsam ve düzenleme
 
 - Dosyalar, claude.ai'daki "Verileri dışa aktar" özelliğiyle alınan sohbet kaydından üretilmiştir. Metinler düzeltilmemiştir.
 - Yapay zekânın iç düşünme adımları ve araç çağrıları dahil değildir. Ekran görüntüleri metin olmadığı için `[ekran görüntüsü eklendi]` satırı olarak işaretlenmiştir.
 - Depo herkese açık olduğu için dosyalar yayından önce gizli bilgi kalıplarına (veritabanı adresi, parola, anahtar) karşı taranmıştır.
+- Yalnızca tamamen selamlaşma olan 3 mesaj çifti (teşekkür, iyi geceler, görüşürüz) çıkarılmış, yerlerine `[selamlaşma mesajı ve cevabı çıkarıldı]` notu konmuştur (Gün 3b'de 2, Gün 4'te 1). İşle ilgili hiçbir mesaj çıkarılmamıştır.
 - Maskelenenler: Mac kullanıcı adı ve bilgisayar adı (`kullanici`, `bilgisayar`), okul adı kısaltması (`[okul]`), gerçek Neon sunucu adı (`[NEON_HOST]`) ve sohbete yapıştırılan bir parola parçası (`[NEON_PAROLA]`). Başka hiçbir yerde metne dokunulmamıştır.
 - Gün 2'de gerçek bir veritabanı adresinin yanlışlıkla `.env.example` dosyasına girmesi olayı yaşandı. Parola yenilendi, kural projeye eklendi (ayrıntı: [ADR](../docs/02_ADR.md)).
 
