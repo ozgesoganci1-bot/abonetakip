@@ -81,6 +81,11 @@ model Customer {
 
   // Aynı firmaya ait olduğunu veritabanında garanti etmek için (id + tenantId) birlikte benzersiz
   @@unique([id, tenantId])
+  // Aynı firmada aynı e-posta iki müşteride kullanılamaz. Büyük/küçük harf farkı,
+  // uygulamada e-posta küçük harfe çevrilerek giderilir. E-postası boş (NULL) olan
+  // müşteriler bu kurala takılmaz: PostgreSQL birden fazla NULL değere izin verir.
+  // Farklı firmalar aynı e-postayı kullanabilir.
+  @@unique([tenantId, email])
   @@index([tenantId])
   @@map("customers")
 }

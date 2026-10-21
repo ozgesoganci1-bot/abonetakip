@@ -106,3 +106,141 @@ export function kayitGirdisiniDogrula(girdi: {
     },
   };
 }
+
+// ---------- Müşteri ve plan formları (Gün 4) ----------
+
+// Form doğrulama sonucu: ya temiz değerler, ya da alan bazında hatalar.
+// Kayıt formundan farkı: ilk hatada durmaz, bütün alanların hatasını birlikte döner.
+export type AlanSonucu<T, Alan extends string> =
+  | { ok: true; deger: T }
+  | { ok: false; alanHatalari: Partial<Record<Alan, string>> };
+
+// Kayıt kimliği (id) kontrolü. Kimlikler cuid biçimindedir: küçük harf ve rakam.
+// Biçimi bozuk kimlik için de "bulunamadı" denir; neyin yanlış olduğu söylenmez.
+const KIMLIK_DESENI = /^[a-z0-9]{1,50}$/;
+
+export function kimlikDogrula(girdi: unknown): Sonuc<string> {
+  const kimlik = temizle(girdi);
+  if (!KIMLIK_DESENI.test(kimlik)) {
+    return { ok: false, hata: "Kayıt bulunamadı." };
+  }
+  return { ok: true, deger: kimlik };
+}
+
+// İsteğe bağlı e-posta: boşsa null döner, doluysa normal e-posta kontrolü yapılır.
+export function istegeBagliEpostaDogrula(girdi: unknown): Sonuc<string | null> {
+  if (temizle(girdi).length === 0) {
+    return { ok: true, deger: null };
+  }
+  return epostaDogrula(girdi);
+}
+
+// Fiyat sınırı. Veritabanındaki Int sütunu yaklaşık 2,1 milyara kadar sayı alır;
+// gerçekçi bir üst sınır koyarak taşmayı ve yazım hatalarını önlüyoruz.
+export const FIYAT_EN_COK = 10_000_000;
+
+// Fiyat kontrolü: TL cinsinden, 0'dan büyük tam sayı (kuruş yok).
+export function fiyatDogrula(girdi: unknown): Sonuc<number> {
+  const metin = temizle(girdi);
+  if (metin.length === 0) {
+    return { ok: false, hata: "Fiyat boş bırakılamaz." };
+  }
+  if (metin.startsWith("-")) {
+    return { ok: false, hata: "Fiyat 0'dan büyük olmalıdır." };
+  }
+  // "1.000" (binlik) ile "12,5" (kuruş) yazımı karışmasın diye ikisi de reddedilir.
+  if (/[.,]/.test(metin)) {
+    return {
+      ok: false,
+      hata: "Fiyatı nokta veya virgül kullanmadan, tam sayı olarak yazın (ör. 1000). Kuruş girilmez.",
+    };
+  }
+  if (!/^\d+$/.test(metin)) {
+    return { ok: false, hata: "Fiyat yalnızca rakamlardan oluşmalıdır." };
+  }
+  // Çok uzun rakam dizilerini sayıya çevirmeden önce eleriz.
+  const fiyat = metin.length > 9 ? Infinity : Number(metin);
+  if (fiyat === 0) {
+    return { ok: false, hata: "Fiyat 0'dan büyük olmalıdır." };
+  }
+  if (fiyat > FIYAT_EN_COK) {
+    return {
+      ok: false,
+      hata: `Fiyat en fazla ${FIYAT_EN_COK.toLocaleString("tr-TR")} TL olabilir.`,
+    };
+  }
+  return { ok: true, deger: fiyat };
+}
+
+// Plan aralıkları ve ekranda gösterilen Türkçe karşılıkları.
+export const PLAN_ARALIKLARI = ["MONTHLY", "YEARLY"] as const;
+export type PlanAraligi = (typeof PLAN_ARALIKLARI)[number];
+export const ARALIK_ETIKETI: Record<PlanAraligi, string> = {
+  MONTHLY: "Aylık",
+  YEARLY: "Yıllık",
+};
+
+// Aralık kontrolü: yalnızca listedeki değerler kabul edilir.
+export function aralikDogrula(girdi: unknown): Sonuc<PlanAraligi> {
+  const metin = temizle(girdi);
+  const gecerli = (PLAN_ARALIKLARI as readonly string[]).includes(metin);
+  if (!gecerli) {
+    return { ok: false, hata: "Lütfen aylık veya yıllık aralığı seçin." };
+  }
+  return { ok: true, deger: metin as PlanAraligi };
+}
+
+// Müşteri formundan gelen temizlenmiş değerler.
+export type MusteriGirdisi = {
+  ad: string;
+  eposta: string | null;
+};
+
+// Müşteri formunun tamamını kontrol eder.
+export function musteriGirdisiniDogrula(girdi: {
+  ad: unknown;
+  eposta: unknown;
+}): AlanSonucu<MusteriGirdisi, "ad" | "eposta"> {
+  const ad = metinDogrula(girdi.ad, "Müşteri adı", 2, 100);
+  const eposta = istegeBagliEpostaDogrula(girdi.eposta);
+
+  if (ad.ok && eposta.ok) {
+    return { ok: true, deger: { ad: ad.deger, eposta: eposta.deger } };
+  }
+
+  const alanHatalari: Partial<Record<"ad" | "eposta", string>> = {};
+  if (!ad.ok) alanHatalari.ad = ad.hata;
+  if (!eposta.ok) alanHatalari.eposta = eposta.hata;
+  return { ok: false, alanHatalari };
+}
+
+// Plan formundan gelen temizlenmiş değerler.
+export type PlanGirdisi = {
+  ad: string;
+  fiyat: number;
+  aralik: PlanAraligi;
+};
+
+// Plan formunun tamamını kontrol eder.
+export function planGirdisiniDogrula(girdi: {
+  ad: unknown;
+  fiyat: unknown;
+  aralik: unknown;
+}): AlanSonucu<PlanGirdisi, "ad" | "fiyat" | "aralik"> {
+  const ad = metinDogrula(girdi.ad, "Plan adı", 2, 100);
+  const fiyat = fiyatDogrula(girdi.fiyat);
+  const aralik = aralikDogrula(girdi.aralik);
+
+  if (ad.ok && fiyat.ok && aralik.ok) {
+    return {
+      ok: true,
+      deger: { ad: ad.deger, fiyat: fiyat.deger, aralik: aralik.deger },
+    };
+  }
+
+  const alanHatalari: Partial<Record<"ad" | "fiyat" | "aralik", string>> = {};
+  if (!ad.ok) alanHatalari.ad = ad.hata;
+  if (!fiyat.ok) alanHatalari.fiyat = fiyat.hata;
+  if (!aralik.ok) alanHatalari.aralik = aralik.hata;
+  return { ok: false, alanHatalari };
+}
