@@ -244,3 +244,57 @@ export function planGirdisiniDogrula(girdi: {
   if (!aralik.ok) alanHatalari.aralik = aralik.hata;
   return { ok: false, alanHatalari };
 }
+
+// ---------- Abonelik formları (Gün 5) ----------
+
+// Abonelik başlatma formundan gelen temizlenmiş değerler.
+export type AbonelikBaslatGirdisi = {
+  musteriId: string;
+  planId: string;
+};
+
+// Seçim kutusundan gelen kimliği kontrol eder.
+// Hiçbir şey seçilmediyse "seçin" der. Kimlik biçimi bozuksa (formla oynanmışsa)
+// "bulunamadı" der; neyin yanlış olduğu söylenmez.
+function secimDogrula(
+  girdi: unknown,
+  secimMesaji: string,
+  bulunamadiMesaji: string
+): Sonuc<string> {
+  if (temizle(girdi).length === 0) {
+    return { ok: false, hata: secimMesaji };
+  }
+  const kimlik = kimlikDogrula(girdi);
+  if (!kimlik.ok) {
+    return { ok: false, hata: bulunamadiMesaji };
+  }
+  return kimlik;
+}
+
+// Abonelik başlatma formunun tamamını kontrol eder.
+// Müşteri ve planın bu firmaya ait ve aktif olduğu burada DEĞİL, veritabanı
+// sorgusunda (actions.ts) kontrol edilir.
+export function abonelikBaslatGirdisiniDogrula(girdi: {
+  musteriId: unknown;
+  planId: unknown;
+}): AlanSonucu<AbonelikBaslatGirdisi, "musteriId" | "planId"> {
+  const musteri = secimDogrula(
+    girdi.musteriId,
+    "Lütfen bir müşteri seçin.",
+    "Seçilen müşteri bulunamadı."
+  );
+  const plan = secimDogrula(
+    girdi.planId,
+    "Lütfen bir plan seçin.",
+    "Seçilen plan bulunamadı."
+  );
+
+  if (musteri.ok && plan.ok) {
+    return { ok: true, deger: { musteriId: musteri.deger, planId: plan.deger } };
+  }
+
+  const alanHatalari: Partial<Record<"musteriId" | "planId", string>> = {};
+  if (!musteri.ok) alanHatalari.musteriId = musteri.hata;
+  if (!plan.ok) alanHatalari.planId = plan.hata;
+  return { ok: false, alanHatalari };
+}
