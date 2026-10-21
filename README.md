@@ -41,6 +41,13 @@ Rol kontrolü sunucu tarafında yapılır. Bir firmanın kullanıcısı başka b
 - Yerelde çalıştırmak için `.env` dosyasında üç değişken gerekir: `DATABASE_URL`, `DIRECT_URL`, `SESSION_SECRET`. Örnek için `.env.example` dosyasına bak. Gerçek değerler asla depoya yazılmaz.
 - `SESSION_SECRET` için rastgele bir değer üretmek: `openssl rand -base64 32`. Üretilen değeri yalnızca `.env` dosyasına ve Render'daki ortam değişkenine koy.
 
+## Müşteri ve plan yönetimi
+- **Müşteriler** (`/musteriler`): ekleme, düzenleme ve pasife alma. E-posta isteğe bağlıdır. Doluysa firma içinde benzersizdir (pasif müşteriler dahil), başka firmada aynı e-posta olması sorun değildir.
+- **Planlar** (`/planlar`): ad, aylık ya da yıllık aralık ve fiyat (tam sayı TL). Aktif aboneliği olan planın fiyatı ve aralığı değiştirilemez.
+- **Pasife alma:** kayıtlar silinmez. Yalnızca `manager` pasife alabilir. Aktif aboneliği olan müşteri ya da plan pasife alınamaz. Pasife alınan kayıt yeniden aktifleştirilemez.
+- **Yetki:** `manager` ve `finance` müşteri ile plan ekleyip düzenleyebilir. Kontroller sunucuda yapılır.
+- **Kiracı izolasyonu:** başka firmanın kaydına erişim denemesi "Kayıt bulunamadı" yanıtı verir.
+
 ## Kapsam (MoSCoW)
 - **MUST:** kayıt, giriş ve roller; müşteri ve plan yönetimi; abonelik yaşam döngüsü; KPI dashboard; kiracı izolasyonu
 - **SHOULD:** SSE ile iptal uyarısı, aylık MRR grafiği
