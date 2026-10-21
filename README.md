@@ -48,6 +48,15 @@ Rol kontrolü sunucu tarafında yapılır. Bir firmanın kullanıcısı başka b
 - **Yetki:** `manager` ve `finance` müşteri ile plan ekleyip düzenleyebilir. Kontroller sunucuda yapılır.
 - **Kiracı izolasyonu:** başka firmanın kaydına erişim denemesi "Kayıt bulunamadı" yanıtı verir.
 
+## Abonelikler
+- Abonelikler `/abonelikler` sayfasında yönetilir. Üç işlem vardır: **başlat**, **yenile**, **iptal et**.
+- Bir müşterinin aynı anda yalnızca bir aktif aboneliği olabilir. Bu kural veritabanı düzeyinde de zorlanır.
+- Yenileme yalnızca aktif abonelikte yapılır. İptal edilen abonelik geri açılmaz, müşteri için yeni abonelik başlatılır.
+- Her durum değişikliği olay kaydı olarak saklanır (STARTED, RENEWED, CANCELED). Abonelik ile olay aynı işlemde yazılır.
+- Dönem bitişi her aboneliğin `currentPeriodEnd` alanında tutulur. Ay sonları taşmaz (31 Ocak + 1 ay = 28 Şubat).
+- `manager` ve `finance` rolleri abonelik işlemlerini yapabilir. Kayıtlar yalnızca kendi firmasına aittir.
+- Dönem hesabının birim testi: `node --test src/lib/donem.test.ts`
+
 ## Kapsam (MoSCoW)
 - **MUST:** kayıt, giriş ve roller; müşteri ve plan yönetimi; abonelik yaşam döngüsü; KPI dashboard; kiracı izolasyonu
 - **SHOULD:** SSE ile iptal uyarısı, aylık MRR grafiği

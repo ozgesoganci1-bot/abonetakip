@@ -137,3 +137,34 @@
 ### Bilinen açıklar
 - Pasife alma ve plan fiyat kilidi "önce kontrol, sonra güncelleme" iki adımıdır. Abonelik başlatmayla aynı anda gelirse küçük bir yarış penceresi vardır. Gün 5'te abonelik başlatılırken kapatılacak, not `src/lib/abonelik-kontrol.ts` içinde.
 - Abonelik başlatılırken müşteri ve planın `isActive` olduğu Gün 5'te kontrol edilecek.
+
+## Gün 5 kararları (21 Ekim 2026)
+
+### Abonelik durum geçişleri
+- Karar: Başlat (abonelik yok, ACTIVE olur, olay STARTED), Yenile (yalnızca ACTIVE, dönem bir aralık ileri, olay RENEWED), İptal (yalnızca ACTIVE, CANCELED olur, olay CANCELED). İptal edilen abonelik yenilenemez, müşteri için yeni abonelik (yeni kayıt) başlatılır. `manager` ve `finance` üç işlemi de yapabilir.
+- Neden: Durum geçmişi bozulmasın, MRR ve churn olaylardan güvenilir hesaplanabilsin.
+
+### Abonelik ve olay kaydı tek işlemde
+- Karar: Abonelik kaydı ile olay kaydı aynı veritabanı işleminde (transaction) yazılır, biri başarısız olursa ikisi de geri alınır. İşlem `getTenantDb()` üzerinden yapıldığı için tenant filtresi işlem içinde de uygulanır (testlerle doğrulandı).
+- Neden: Olay kaydı olmayan durum değişikliği ya da durum değişmeyen olay kaydı tutarsızlık yaratır.
+
+### Çift tıklama ve çakışma
+- Karar: Başlatmada `subscriptions_one_active_per_customer` dizini ikinci aktif aboneliği engeller, hata yakalanıp anlaşılır mesaj verilir. İptalde güncelleme koşuluna `status = ACTIVE`, yenilemede ek olarak okunan `currentPeriodEnd` değeri eklenir. Aynı anda gelen iki istekten yalnızca biri uygulanır, ikincisi 0 satır etkiler ve olay yazılmaz.
+- Neden: Çift tıklama ya da iki sekmeden gelen aynı işlem, ikinci bir yenileme veya iptal olayı üretmemeli.
+
+### Dönem hesabı
+- Karar: `src/lib/donem.ts` saf fonksiyon, UTC'ye göre çalışır. Ay sonu taşmaz (31 Ocak + 1 ay = 28 Şubat, artık yılda 29 Şubat). Yenilemede yeni bitiş mevcut bitişten hesaplanır.
+- Sınır: Ay sonu kısaltması olduysa sonraki dönemler kısalan günden sürer (31 Ocak, 28 Şubat, 28 Mart). Kabul edilmiş bir basitleştirmedir.
+- Neden: JavaScript'in `setMonth` işlemi 31 Ocak + 1 ay için 3 Mart verir, müşteriye fazladan gün tanır.
+
+### Birim testi: ek paket yok
+- Karar: Yeni paket eklenmedi. Node'un yerleşik test aracı kullanılır (`node --test src/lib/donem.test.ts`, 8 test). `.ts` uzantılı içe aktarma için `tsconfig.json` içine `allowImportingTsExtensions: true` eklendi (`noEmit` açık olduğu için yalnızca tür kontrolü yapılır).
+- Neden: Proje kuralı gereksiz paket eklememek. Gün 7 metrik hesapları da aynı yöntemle test edilecek.
+
+### Şema değişikliği
+- Karar: `subscriptions.currentPeriodEnd` (zorunlu, tarih) eklendi. Migration yerelde `--create-only` ile oluşturuldu, içinde yalnızca `ADD COLUMN` var, `DROP INDEX` satırı yok. `migrate deploy` ile Neon'a uygulandı.
+
+### Bilinen açıklar
+- Pasife alma ile abonelik başlatma tam aynı anda gelirse küçük bir yarış penceresi kalır. Tamamen kapatmak satır kilidi gerektirir, o da ham SQL demektir ve projede ham SQL yasaktır. Bilinçli olarak kabul edildi.
+- Render ücretsiz örneği boşta kapanabilir, ilk başlatma ara sıra takılabilir. Çözüm: Manual Deploy ile son commit'i yeniden dağıtmak.
+- Test sırasında açılan sahte hesaplar (`burak.b` ve `can.c`) ile verileri veritabanında duruyor. Gün 14 temizlik listesinde.
