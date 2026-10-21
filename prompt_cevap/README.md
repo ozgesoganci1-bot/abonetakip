@@ -8,25 +8,30 @@ Bu klasör, AboneTakip projesini geliştirirken yapay zekâya yazdığım prompt
 
 | Gün | Konu | Dosya |
 |---|---|---|
+| 0 | Hazırlık: proje fikri, kapsam, belge taslakları ve kurulum | [gun_0_prompt_cevap.md](gun_0_prompt_cevap.md) |
 | 1 | Planlama, issue'lar ve README | [gun_1_prompt_cevap.md](gun_1_prompt_cevap.md) |
 | 2 | Prisma şeması ve ilk deploy | [gun_2_prompt_cevap.md](gun_2_prompt_cevap.md) |
+| 3 | Kayıt, giriş, roller ve merkezi tenant filtresi | [gun_3_prompt_cevap.md](gun_3_prompt_cevap.md) |
+| 3b | Arayüzü profesyonelleştirme | [gun_3b_prompt_cevap.md](gun_3b_prompt_cevap.md) |
+| 4 | Müşteri ve plan yönetimi | [gun_4_prompt_cevap.md](gun_4_prompt_cevap.md) |
+| 5 | Abonelik yaşam döngüsü ve olay kaydı | [gun_5_prompt_cevap.md](gun_5_prompt_cevap.md) |
 
-Gün 3 ve sonrası çalışma ilerledikçe bu klasöre eklenecektir.
+Sonraki günler çalışma ilerledikçe bu klasöre eklenecektir.
 
 ## Her dosya nasıl okunur
 
-1. **Prompt:** yapay zekâya yazdığım metin, olduğu gibi.
-2. **Yapay zekânın cevabı, okunaklı görünüm:** cevabın başlık, tablo ve kod blokları ile düzenli hâli. Cümleler aynıdır. Sohbet kopyalanırken kaybolan kod bloğu işaretleri ve tablolar yeniden kurulmuştur.
-3. **Yapay zekânın cevabı, ham metin:** aynı cevabın hiç düzenlenmemiş hâli ("tıkla aç" bölümünün içinde).
-4. **Sonuç:** o gün ne istendi, ne üretildi, ne düzeltildi. Bu bölümü ben yazdım, yapay zekâ cevabı değildir.
+- **Prompt:** benim yazdığım metin, kutu içinde ve olduğu gibi.
+- **Claude cevabı:** girintili (`>` ile başlayan) alan. Başlıklar, tablolar ve kod blokları Claude'un yazdığı orijinal Markdown'dır.
+- Bir günün işi birden çok sohbette yapıldıysa (örneğin plan ayrı bir sohbette, uygulama ana sohbette) dosyada her sohbet ayrı bölümdür.
+- **Sonuç:** o gün ne istendi, ne üretildi, ne düzeltildi. Bu bölümü ben yazdım, yapay zekâ cevabı değildir. Kaynağı [Prompt Günlüğü](../docs/03_Prompt_Gunlugu.md)'dür.
 
-Bir sohbetin ortasında kendi mesajlarım (terminal çıktıları, onaylar) varsa ayrı bölüm olarak gösterilmiştir.
+## Kapsam ve düzenleme
 
-## Gizlilik ve düzenleme
-
-- Depo herkese açık olduğu için dosyalar yayından önce gizli bilgi kalıplarına (veritabanı adresi, parola, anahtar) karşı taranmıştır. Gerçek bir adres veya parola bulunmaz.
-- Terminal çıktılarındaki Mac kullanıcı adı gizlenmiştir (`kullanici@bilgisayar`, `/Users/kullanici/`). Başka hiçbir yerde metne dokunulmamıştır.
-- Ekran görüntüleri metin olmadığı için dosyalara alınmamıştır.
+- Dosyalar, claude.ai'daki "Verileri dışa aktar" özelliğiyle alınan sohbet kaydından üretilmiştir. Metinler düzeltilmemiştir.
+- Yapay zekânın iç düşünme adımları ve araç çağrıları dahil değildir. Ekran görüntüleri metin olmadığı için `[ekran görüntüsü eklendi]` satırı olarak işaretlenmiştir.
+- Depo herkese açık olduğu için dosyalar yayından önce gizli bilgi kalıplarına (veritabanı adresi, parola, anahtar) karşı taranmıştır.
+- Maskelenenler: Mac kullanıcı adı ve bilgisayar adı (`kullanici`, `bilgisayar`), okul adı kısaltması (`[okul]`), gerçek Neon sunucu adı (`[NEON_HOST]`) ve sohbete yapıştırılan bir parola parçası (`[NEON_PAROLA]`). Başka hiçbir yerde metne dokunulmamıştır.
+- Gün 2'de gerçek bir veritabanı adresinin yanlışlıkla `.env.example` dosyasına girmesi olayı yaşandı. Parola yenilendi, kural projeye eklendi (ayrıntı: [ADR](../docs/02_ADR.md)).
 
 ## İlgili belgeler
 
