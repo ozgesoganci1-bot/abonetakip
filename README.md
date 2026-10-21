@@ -69,3 +69,4 @@ Rol kontrolü sunucu tarafında yapılır. Bir firmanın kullanıcısı başka b
 - [14 günlük prompt planı](docs/04_14_Gunluk_Prompt_Plani.md)
 - [Kurulum rehberi](docs/00_Kurulum_Rehberi.md)
 - [AI talimat dosyası](CLAUDE.md) 
+- [Yapay zekâ konuşmaları: prompt ve cevaplar](prompt_cevap/README.md)
