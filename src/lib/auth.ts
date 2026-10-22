@@ -17,6 +17,7 @@ import {
   oturumKullaniciIdOku,
 } from "./session";
 import { epostaDogrula, type KayitGirdisi } from "./validation";
+import { yoneticiMi } from "./yetki";
 
 // bcrypt maliyeti: sayı büyüdükçe özetleme yavaşlar ve kırılması zorlaşır.
 const BCRYPT_TUR = 12;
@@ -81,9 +82,10 @@ export async function requireUser(): Promise<AktifKullanici> {
 // Yalnızca manager için. Giriş yapmamışsa giriş sayfasına yönlendirir.
 // Kullanıcı finance ise null döner: sayfa "yetkiniz yok" mesajı göstermelidir,
 // sunucu işlemi ise işlemi yapmadan durmalıdır.
+// Rol kararı src/lib/yetki.ts içindeki saf fonksiyonla verilir (Gün 6).
 export async function requireManager(): Promise<AktifKullanici | null> {
   const kullanici = await requireUser();
-  return kullanici.role === "manager" ? kullanici : null;
+  return yoneticiMi(kullanici.role) ? kullanici : null;
 }
 
 // Prisma'nın "tekrar eden kayıt" hatasını (P2002) tanır.

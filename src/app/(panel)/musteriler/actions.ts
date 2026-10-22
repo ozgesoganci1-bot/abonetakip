@@ -10,12 +10,16 @@
 // DİKKAT: requireUser() ve getTenantDb() giriş yapılmamışsa yönlendirme (redirect)
 // yapar. Yönlendirme bir hata olarak fırlatıldığı için bu çağrılar try/catch
 // bloklarının DIŞINDA tutulur.
+//
+// Gün 6: Pasife alma işleminin mantığı ve rol kontrolü src/lib/pasife-alma.ts
+// dosyasına taşındı (otomatik test edilebilsin diye). Buradaki işlem yalnızca
+// oturumu okur, çekirdeği çağırır ve sayfaları yeniler.
 
 import { revalidatePath } from "next/cache";
-import { requireManager, requireUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { getTenantDb } from "@/lib/tenant";
 import { kimlikDogrula, musteriGirdisiniDogrula } from "@/lib/validation";
-import { aktifAbonelikVarMi } from "@/lib/abonelik-kontrol";
+import { musteriPasifeAlCekirdek } from "@/lib/pasife-alma";
 import {
   MESAJ,
   formMetni,
@@ -179,56 +183,23 @@ export async function musteriGuncelle(
 }
 
 // Müşteriyi pasife alır. YALNIZCA manager yapabilir. Geri alınamaz.
+// Rol kontrolü ve asıl mantık src/lib/pasife-alma.ts içindedir.
 export async function musteriPasifeAl(
   _onceki: FormDurumu,
   formData: FormData
 ): Promise<FormDurumu> {
-  // Sunucu tarafı yetki kontrolü: finance kullanıcısı için null döner.
-  const yonetici = await requireManager();
-  if (!yonetici) {
-    return { durum: "hata", mesaj: MESAJ.yetkiYok };
-  }
-
-  const kimlik = kimlikDogrula(formData.get("id"));
-  if (!kimlik.ok) {
-    return { durum: "hata", mesaj: MESAJ.bulunamadi };
-  }
-
+  // Kullanıcı ve kiracıya bağlı veritabanı nesnesi: ikisi de OTURUMDAN gelir.
+  // Giriş yapılmamışsa yönlendirme yapılır (try/catch dışında).
+  const kullanici = await requireUser();
   const db = await getTenantDb();
-  const musteri = await db.customer.findFirst({
-    where: { id: kimlik.deger },
-    select: { isActive: true },
-  });
-  if (!musteri) {
-    return { durum: "hata", mesaj: MESAJ.bulunamadi };
-  }
-  if (!musteri.isActive) {
-    return { durum: "hata", mesaj: "Bu müşteri zaten pasif." };
-  }
 
-  // Aktif aboneliği olan müşteri pasife alınamaz (bkz. src/lib/abonelik-kontrol.ts).
-  if (await aktifAbonelikVarMi({ musteriId: kimlik.deger })) {
-    return {
-      durum: "hata",
-      mesaj:
-        "Bu müşterinin aktif aboneliği var. Önce aboneliği iptal edin, sonra müşteriyi pasife alın.",
-    };
-  }
+  const sonuc = await musteriPasifeAlCekirdek(kullanici, db, formData.get("id"));
 
-  try {
-    const sonucSatir = await db.customer.updateMany({
-      where: { id: kimlik.deger, isActive: true },
-      data: { isActive: false },
-    });
-    if (sonucSatir.count === 0) {
-      return { durum: "hata", mesaj: MESAJ.bulunamadi };
-    }
-  } catch {
-    console.error("Müşteri pasife alınırken beklenmeyen hata.");
-    return { durum: "hata", mesaj: MESAJ.beklenmeyen };
+  // Yalnızca başarılı işlemde sayfalar yenilenir.
+  if (sonuc.durum === "basarili") {
+    revalidatePath("/musteriler");
+    const kimlik = kimlikDogrula(formData.get("id"));
+    if (kimlik.ok) revalidatePath(`/musteriler/${kimlik.deger}`);
   }
-
-  revalidatePath("/musteriler");
-  revalidatePath(`/musteriler/${kimlik.deger}`);
-  return { durum: "basarili", mesaj: "Müşteri pasife alındı." };
+  return sonuc;
 }

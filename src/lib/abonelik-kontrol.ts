@@ -4,9 +4,14 @@
 // fiyatı veya aralığı değiştirilmek istendiğinde bu fonksiyon çağrılır.
 // Bu kontrolün yapıldığı TEK yer burasıdır.
 //
-// Sorgu getTenantDb() üzerinden yapılır. "count" işlemi tenant.ts içindeki OKUMA
-// listesinde olduğu için filtreye tenantId otomatik eklenir: başka firmanın
-// abonelikleri hiçbir zaman sayılmaz.
+// Sorgu tenant filtresinden geçen veritabanı nesnesiyle yapılır. "count" işlemi
+// tenant.ts içindeki OKUMA listesinde olduğu için filtreye tenantId otomatik
+// eklenir: başka firmanın abonelikleri hiçbir zaman sayılmaz.
+//
+// Gün 6: İsteğe bağlı ikinci parametre "db" eklendi.
+// - Verilirse o nesne kullanılır (pasife-alma.ts ve testler). Bu nesne de
+//   tenant filtresinden geçen bir nesnedir (TenantDb).
+// - Verilmezse eskisi gibi oturumdan alınır (getTenantDb). Mevcut çağrılar değişmedi.
 //
 // DURUM (Gün 5): Abonelikler artık oluşturuluyor (bkz. abonelikler/actions.ts),
 // bu yüzden kontrol gerçek veriyle çalışır.
@@ -23,20 +28,23 @@
 // kilidi (SELECT ... FOR UPDATE) gerektirir; o da ham SQL demektir ve projede ham
 // SQL yasaktır (bkz. tenant.ts). Bu risk bilinçli olarak kabul edilmiştir.
 
-import { getTenantDb } from "./tenant";
+import { getTenantDb, type TenantDb } from "./tenant";
 
 type Hedef = { musteriId: string } | { planId: string };
 
 // Verilen müşterinin veya planın ACTIVE durumda aboneliği var mı?
-export async function aktifAbonelikVarMi(hedef: Hedef): Promise<boolean> {
-  const db = await getTenantDb();
+export async function aktifAbonelikVarMi(
+  hedef: Hedef,
+  db?: TenantDb
+): Promise<boolean> {
+  const veritabani = db ?? (await getTenantDb());
 
   const kosul =
     "musteriId" in hedef
       ? { customerId: hedef.musteriId }
       : { planId: hedef.planId };
 
-  const sayi = await db.subscription.count({
+  const sayi = await veritabani.subscription.count({
     where: { ...kosul, status: "ACTIVE" },
   });
 

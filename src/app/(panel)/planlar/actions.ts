@@ -5,12 +5,16 @@
 // Ek kural: aktif aboneliği olan planın fiyatı ve aralığı değiştirilemez,
 // çünkü MRR planın ŞU ANKİ fiyatından hesaplanır. Fiyat değişirse geçmiş
 // ve bugünkü MRR bir anda değişir. Ad değişikliği serbesttir.
+//
+// Gün 6: Pasife alma işleminin mantığı ve rol kontrolü src/lib/pasife-alma.ts
+// dosyasına taşındı (otomatik test edilebilsin diye).
 
 import { revalidatePath } from "next/cache";
-import { requireManager, requireUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { getTenantDb } from "@/lib/tenant";
 import { kimlikDogrula, planGirdisiniDogrula } from "@/lib/validation";
 import { aktifAbonelikVarMi } from "@/lib/abonelik-kontrol";
+import { planPasifeAlCekirdek } from "@/lib/pasife-alma";
 import { MESAJ, formMetni, type FormDurumu } from "@/lib/islem";
 
 const KILITLI_MESAJ =
@@ -130,56 +134,23 @@ export async function planGuncelle(
 }
 
 // Planı pasife alır. YALNIZCA manager yapabilir. Geri alınamaz.
+// Rol kontrolü ve asıl mantık src/lib/pasife-alma.ts içindedir.
 export async function planPasifeAl(
   _onceki: FormDurumu,
   formData: FormData
 ): Promise<FormDurumu> {
-  // Sunucu tarafı yetki kontrolü: finance kullanıcısı için null döner.
-  const yonetici = await requireManager();
-  if (!yonetici) {
-    return { durum: "hata", mesaj: MESAJ.yetkiYok };
-  }
-
-  const kimlik = kimlikDogrula(formData.get("id"));
-  if (!kimlik.ok) {
-    return { durum: "hata", mesaj: MESAJ.bulunamadi };
-  }
-
+  // Kullanıcı ve kiracıya bağlı veritabanı nesnesi: ikisi de OTURUMDAN gelir.
+  // Giriş yapılmamışsa yönlendirme yapılır (try/catch dışında).
+  const kullanici = await requireUser();
   const db = await getTenantDb();
-  const plan = await db.plan.findFirst({
-    where: { id: kimlik.deger },
-    select: { isActive: true },
-  });
-  if (!plan) {
-    return { durum: "hata", mesaj: MESAJ.bulunamadi };
-  }
-  if (!plan.isActive) {
-    return { durum: "hata", mesaj: "Bu plan zaten pasif." };
-  }
 
-  // Aktif aboneliği olan plan pasife alınamaz (bkz. src/lib/abonelik-kontrol.ts).
-  if (await aktifAbonelikVarMi({ planId: kimlik.deger })) {
-    return {
-      durum: "hata",
-      mesaj:
-        "Bu planın aktif abonelikleri var. Önce abonelikleri iptal edin, sonra planı pasife alın.",
-    };
-  }
+  const sonuc = await planPasifeAlCekirdek(kullanici, db, formData.get("id"));
 
-  try {
-    const sonucSatir = await db.plan.updateMany({
-      where: { id: kimlik.deger, isActive: true },
-      data: { isActive: false },
-    });
-    if (sonucSatir.count === 0) {
-      return { durum: "hata", mesaj: MESAJ.bulunamadi };
-    }
-  } catch {
-    console.error("Plan pasife alınırken beklenmeyen hata.");
-    return { durum: "hata", mesaj: MESAJ.beklenmeyen };
+  // Yalnızca başarılı işlemde sayfalar yenilenir.
+  if (sonuc.durum === "basarili") {
+    revalidatePath("/planlar");
+    const kimlik = kimlikDogrula(formData.get("id"));
+    if (kimlik.ok) revalidatePath(`/planlar/${kimlik.deger}`);
   }
-
-  revalidatePath("/planlar");
-  revalidatePath(`/planlar/${kimlik.deger}`);
-  return { durum: "basarili", mesaj: "Plan pasife alındı." };
+  return sonuc;
 }
