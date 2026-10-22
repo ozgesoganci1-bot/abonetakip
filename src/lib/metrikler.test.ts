@@ -103,6 +103,41 @@ test("ders örneği (gerçekçi veriyle): Ekim'de 50 müşteriden 2'si gider, 2 
 });
 
 // =====================================================================
+// GÜN 9 ELLE TEST SENARYOSU
+// Dashboard'da elle karşılaştırılacak değerlerin kaynağı bu testtir.
+// 3 müşteri Eylül'den beri aktif. Ekim'de 2'si iptal ediyor. CAC 5.000 TL.
+//   A: aylık 1.000 TL, kalıyor
+//   B: yıllık 12.000 TL (aylık 1.000), 10 Ekim'de iptal
+//   C: aylık 500 TL, 20 Ekim'de iptal
+// Beklenen: MRR 1.000, churn 0,6667 (ekranda %66,7), ARPU 1.000,
+//           ömür 1,5 ay, LTV 1.500, LTV/CAC 0,3 ("Dikkat").
+// =====================================================================
+
+test("Gün 9 elle test senaryosu: 3 müşteri, 2 iptal, CAC 5.000", () => {
+  const eylulBasi = tr("2026-09-01T10:00");
+  const liste = [
+    abonelik({ customerId: "a", fiyat: 1000, startedAt: eylulBasi }),
+    iptalli("b", tr("2026-10-10T10:00"), {
+      fiyat: 12000,
+      aralik: "YEARLY",
+      startedAt: eylulBasi,
+    }),
+    iptalli("c", tr("2026-10-20T10:00"), { fiyat: 500, startedAt: eylulBasi }),
+  ];
+
+  const ozet = metrikOzeti(liste, EKIM_2026, 5000);
+
+  assert.equal(ozet.mrr, 1000); // yalnızca A
+  assert.equal(ozet.aktifMusteri, 1);
+  assert.equal(ozet.churn, 0.6667); // 2 / 3, 4 ondalık
+  assert.equal(ozet.arpu, 1000); // 1.000 / 1
+  assert.equal(ozet.ortalamaOmurAy, 1.5); // 1 / (2/3), ham churn'den
+  assert.equal(ozet.ltv, 1500); // 1.000 x 1,5
+  assert.equal(ozet.ltvCac, 0.3); // 1.500 / 5.000, 3'ün altı: "Dikkat"
+  assert.deepEqual(ozet.nedenler, {});
+});
+
+// =====================================================================
 // SIFIRA BÖLME VE "HESAPLANAMADI" DURUMLARI
 // =====================================================================
 
@@ -186,6 +221,23 @@ test("ara adımda yuvarlama yok: üç yıllık 1.000 TL plan toplamı 250 (83+83
     abonelik({ customerId: id, fiyat: 1000, aralik: "YEARLY" })
   );
   assert.equal(metrikOzeti(liste, EKIM_2026, null).mrr, 250);
+});
+
+test("churn 4 ondalığa yuvarlanır: 1/3 -> 0,3333 (ham değer yuvarlanmaz)", () => {
+  // 3 müşteri ay başında aktif, 1'i Ekim'de iptal ediyor.
+  const liste = [
+    abonelik({ customerId: "a" }),
+    abonelik({ customerId: "b" }),
+    iptalli("c", tr("2026-10-15T10:00")),
+  ];
+  // Ham değer: yuvarlama yok
+  const ham = aylikChurn(liste, EKIM_2026);
+  assert.ok(ham !== null && Math.abs(ham - 1 / 3) < 1e-12);
+  // Özette: 4 ondalık
+  const ozet = metrikOzeti(liste, EKIM_2026, null);
+  assert.equal(ozet.churn, 0.3333);
+  // Ömür ham churn'den hesaplanır: 1 / (1/3) = 3 (1 / 0,3333 = 3,0003 değil)
+  assert.equal(ozet.ortalamaOmurAy, 3);
 });
 
 // =====================================================================

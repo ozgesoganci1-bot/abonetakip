@@ -18,8 +18,12 @@
 // Yuvarlama yalnızca dışarıya sonuç veren iki fonksiyonda (metrikOzeti, mrrGecmisi)
 // ve yalnızca tek bir yardımcıyla (yuvarla) yapılır:
 //   - Para (MRR, ARPU, LTV): en yakın tam TL
-//   - Oranlar (churn, LTV/CAC): 2 ondalık
+//   - Churn: 4 ondalık (Gün 9). Ekranda yüzde olarak 1 ondalıkla gösterilir:
+//     2/3 -> 0,6667 -> "%66,7". 2 ondalık olsaydı 0,67 -> "%67,0" görünürdü.
+//   - LTV/CAC: 2 ondalık
 //   - Ortalama ömür (ay): 1 ondalık
+// Not: Ömür, LTV ve LTV/CAC yuvarlanmış churn'den değil HAM churn'den hesaplanır.
+// Bu yüzden churn yuvarlamasını değiştirmek bu üç değeri etkilemez.
 
 import type { Aralik } from "./donem";
 
@@ -52,7 +56,7 @@ export type MrrNoktasi = {
 export type MetrikOzeti = {
   mrr: number; // tam TL, hiçbir zaman null değil
   aktifMusteri: number;
-  churn: number | null; // 0,04 = %4
+  churn: number | null; // 0,04 = %4. 4 ondalık (ör. 0,6667)
   arpu: number | null;
   ortalamaOmurAy: number | null;
   ltv: number | null;
@@ -259,7 +263,7 @@ export function metrikOzeti(
   return {
     mrr: yuvarla(mrr, 0),
     aktifMusteri,
-    churn: yuvarlaVeyaNull(churn, 2),
+    churn: yuvarlaVeyaNull(churn, 4),
     arpu: yuvarlaVeyaNull(arpu, 0),
     ortalamaOmurAy: yuvarlaVeyaNull(omur, 1),
     ltv: yuvarlaVeyaNull(ltv, 0),
