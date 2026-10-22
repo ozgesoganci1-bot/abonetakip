@@ -168,3 +168,205 @@
 - Pasife alma ile abonelik başlatma tam aynı anda gelirse küçük bir yarış penceresi kalır. Tamamen kapatmak satır kilidi gerektirir, o da ham SQL demektir ve projede ham SQL yasaktır. Bilinçli olarak kabul edildi.
 - Render ücretsiz örneği boşta kapanabilir, ilk başlatma ara sıra takılabilir. Çözüm: Manual Deploy ile son commit'i yeniden dağıtmak.
 - Test sırasında açılan sahte hesaplar (`burak.b` ve `can.c`) ile verileri veritabanında duruyor. Gün 14 temizlik listesinde.
+
+## Gün 6 kararları (22 Ekim 2026): kiracı izolasyonu ve rol testleri
+
+**Durum:** Tamamlandı. PR'lar birleşti (son PR: #25), canlı çalışıyor.
+**Sonuç:** 20 birim testi (`npm test`), 33 veritabanı testi (`npm run test:db`),
+12 adımlık elle test. Testler bir izolasyon açığı buldu, açık aynı gün düzeltildi.
+
+### Kararlar
+
+**K6.1: Veritabanı testleri Neon'da ayrı bir "test" dalında çalışır (Yol B)**
+- **Seçenekler:** (A) Canlı veritabanında "test-" etiketli veri üretip silmek,
+  (B) Neon'da canlının kopyası olan ayrı bir dal.
+- **Karar:** B. Testler `.env.test` dosyasındaki test dalı adresleriyle çalışır.
+- **Gerekçe:** A'da hatalı bir silme sorgusu ya da yarıda kalan bir test canlı veriyi
+  ve dashboard metriklerini bozabilirdi. B'de testler canlı veriye fiziksel olarak
+  dokunamaz. Neon dalı ek maliyetsiz ve ek paketsiz.
+- **Doğrulama:** Kurulumda iki kontrol yapıldı. Adreslerdeki uç nokta kimliği
+  parolasız yazdırıldı ve `prisma migrate status` çıktısındaki sunucu adı Neon
+  panelindeki test dalıyla karşılaştırıldı.
+- **Dikkat:** `prisma.config.ts` dosyası `.env` dosyasını da yükler. `.env.test`
+  içinde bir değişken eksik kalırsa değer canlı `.env` dosyasından gelir. Bu yüzden
+  migration komutlarından önce iki kontrol de yapılır.
+
+**K6.2: Test aracı Node'un yerleşik `node --test` aracıdır (Vitest değil)**
+- **Gerekçe:** Gün 5 ADR kararı "birim testi: ek paket yok" ile uyumlu. Node v26
+  TypeScript dosyalarını doğrudan çalıştırabiliyor.
+- **Bedeli:** Next.js'in uzantısız içe aktarmaları ve `@/` kısaltması için
+  `src/test-destek/kancalar.mjs` adında küçük bir çözümleme kancası yazıldı. Kanca
+  Node'un yerleşik `node:module` özelliğini kullanır, yalnızca testlerde yüklenir.
+  `.ts` değil `.mjs` dosyasıdır, böylece `npm run build` tip kontrolüne girmez.
+- **Önceden konan sınır:** Duman testi birden fazla geçici çözüm gerektirseydi
+  Vitest yeniden değerlendirilecekti. Tek kanca yetti.
+- **Bilinen uyarılar (zararsız):** `MODULE_TYPELESS_PACKAGE_JSON` uyarısı çıkar.
+  `package.json` dosyasına `"type": "module"` eklenmedi, çünkü Next.js
+  yapılandırmasını etkileyebilir.
+
+**K6.3: Pasife alma mantığı test edilebilir bir çekirdeğe ayrıldı**
+- **Sorun:** Rol kontrolü (`requireManager`) oturumu çerezden okuyordu ve çerez
+  yalnızca Next.js isteği içinde vardır. Rol kontrolü sunucu işleminin içinde
+  kaldığı sürece "finance pasife alamaz" kuralı otomatik test edilemezdi.
+- **Karar:**
+  - `src/lib/yetki.ts`: saf rol fonksiyonu `yoneticiMi(rol)`. `requireManager`
+    artık bunu kullanır.
+  - `src/lib/pasife-alma.ts`: `musteriPasifeAlCekirdek` ve `planPasifeAlCekirdek`.
+    Kullanıcıyı ve veritabanı nesnesini parametre olarak alırlar. Rol kontrolü,
+    kimlik kontrolü, aktif abonelik kontrolü ve güncelleme buradadır.
+  - `musteriler/actions.ts` ve `planlar/actions.ts` içindeki pasife alma işlemleri
+    artık yalnızca oturumu okur (`requireUser`, `getTenantDb`), çekirdeği çağırır
+    ve sayfaları yeniler.
+  - `abonelik-kontrol.ts`: `aktifAbonelikVarMi` fonksiyonuna isteğe bağlı `db`
+    parametresi eklendi. Mevcut çağrılar değişmedi.
+- **Korunan kurallar:** Mesajlar ve kontrol sırası Gün 4–5 ile birebir aynı. Uygulamada
+  parametreler her zaman oturumdan gelir, tenantId formdan alınmaz. Ekleme, güncelleme
+  ve abonelik işlemlerine dokunulmadı. Ayrı commit olarak yapıldı ve build ile tarayıcı
+  denemesinden geçtikten sonra testlere geçildi.
+
+**K6.4: Test verisi için ham `prisma` istisnası (`src/test-destek/veri.ts`)**
+- **Neden:** Firma (Tenant) ekleme ve silme, tenant filtresinden bilerek geçemez.
+  Test firmalarını oluşturmak ve silmek için ham `prisma` gerekir.
+- **Güvenceler:**
+  1. `TEST_VERITABANI=evet` işareti yoksa dosya veritabanına bağlanmadan durur. İşaret
+     yalnızca `.env.test` içinde vardır. Testler `.env` dosyasını hiç yüklemez.
+  2. Silme yalnızca o çalışmada oluşturulan firma kimlikleriyle yapılır ve firma
+     adının o çalışmanın etiketiyle (`test-xxxxxxxx`) başlaması gerekir. Joker silme
+     yoktur.
+  3. Silmeden sonra hiçbir test firmasının kalmadığı kontrol edilir.
+- **Denetim:** `kurallar.test.ts` ham `prisma` kullanımına yalnızca `db.ts`, `auth.ts`,
+  `tenant.ts` ve `veri.ts` dosyalarında izin verir. Ham SQL'in hiçbir yerde olmadığını
+  da kontrol eder.
+
+**K6.5: Main'e doğrudan push yapılmaz, her değişiklik PR ile girer**
+- **Olay:** Gün 6'nın ilk commit'leri (çözümleme kancası, duman testi, pasife alma
+  çekirdeği) dal açılmadan doğrudan main'e push edildi. Commit'ler build ve testlerden
+  geçmişti, canlıda sorun çıkmadı. Ama gözden geçirme adımı atlanmış oldu.
+- **Kural:** Her iş ayrı bir dalda yapılır. Commit'ler yerelde hazırlanır. Push ve PR
+  GitHub Desktop ile açılır. Main'e yalnızca birleştirilen PR'lar girer.
+- **Commit öncesi kontrol:** `git --no-pager grep -n -E "npg_[A-Za-z0-9]{6,}"`. Eski
+  `neon.tech|npg_` araması dokümanlarda çok fazla zararsız sonuç döndürüyordu ve
+  gerçek bir sızıntıyı gözden kaçırmayı kolaylaştırıyordu. `CLAUDE.md` Gün 14'te
+  güncellenecek.
+
+**K6.6: Elle testler test dalıyla çalışan geliştirme sunucusunda yapılır**
+- **Komut:** `(set -a; source .env.test; set +a; npx next dev)`. Değerler yalnızca
+  geçici alt kabukta yaşar, ekrana ve komut geçmişine yazılmaz. `node --env-file` bu
+  iş için kullanılamaz, çünkü `next dev` alt sürece bu ayarın aktarılmasına izin vermez.
+- **Doğrulama:** İlk kayıttan sonra yeni firmanın Neon'da test dalında görünüp
+  production'da görünmediği kontrol edildi.
+- **Finance hesapları:** Kullanıcı yönetimi henüz olmadığı için hesaplar uygulamanın
+  kayıt sayfasıyla açıldı (parolalar bcrypt ile özetlendi). Ardından Neon SQL Editor'da,
+  yalnızca test dalında, `UPDATE` ile finance rolüne çevrilip A ve B firmalarına taşındı.
+
+### Güvenlik olayı: Test dalı adresi örnek dosyaya yazıldı
+
+- **Ne oldu:** `.env.test.example` dosyasına yer tutucular yerine test dalının gerçek
+  adresleri ve parolası yazıldı. Commit öncesi `git grep` kontrolü bunu yakaladı.
+  Dosya commit edilmedi, GitHub'a gitmedi. Ancak parola sohbete ve terminal ekranına
+  düştü.
+- **Etkisi:** Test dalı production'dan kopyalandığı için veritabanı sahibi kullanıcının
+  parolası büyük ihtimalle production ile aynıydı.
+- **Alınan önlem:**
+  - Dosya commit hazırlığından çıkarıldı ve yer tutucularla düzeltildi.
+  - Veritabanı sahibi kullanıcının parolası hem test hem production dalında yenilendi.
+  - Render ortam değişkenleri ve yerel `.env` / `.env.test` dosyaları güncellendi.
+  - Canlıda giriş ve listeleme doğrulandı. `SESSION_SECRET` sızmadığı için değiştirilmedi.
+- **Ders:** Gün 2'deki olayla aynı tür hata. Commit öncesi kontrol işe yaradı. Kontrol
+  komutu daha kesin hâle getirildi (K6.5).
+
+### Bilinen açıklar ve alınan önlemler
+
+**Açık 1: Kayıt ilişki alanı üzerinden başka firmaya taşınabiliyordu (düzeltildi)**
+- **Ne bulundu:** Tenant filtresi yalnızca `data.tenantId` alanını engelliyordu. Prisma'da
+  aynı değişiklik ilişki üzerinden de yazılabiliyor:
+  `customer.update({ data: { tenant: { connect: { id: "B" } } } })`. Bu sorgu A
+  firmasının müşterisini B firmasına taşıdı. İzolasyon testlerinden biri (11. test)
+  bunu yakaladı.
+- **Bugünkü risk (düzeltme öncesi):** Düşüktü. Hiçbir sunucu işlemi bu yazımı
+  kullanmıyordu ve form verisi doğrudan `data` içine konmuyordu. Ancak kiracı
+  izolasyonu MUST olduğu için aynı gün düzeltildi.
+- **Ne yapıldı:** `src/lib/tenant.ts` içine beyaz liste eklendi.
+  - Ekleme ve güncellemede (create, createMany, update, updateMany, upsert) yalnızca
+    tablonun kendi sütunları yazılabilir. Sütun listeleri Prisma'nın şemadan ürettiği
+    koddan okunur.
+  - İlişki alanları ve altlarındaki bütün iç içe yazımlar (connect, create,
+    connectOrCreate) en üst düzeyde reddedilir.
+  - Güncellemede `id` ve `tenantId` değiştirilemez.
+  - Tanınmayan tablo veya işlemde filtre durdurur (fail-closed).
+  - Kara liste yerine beyaz liste seçildi: kara liste yalnızca bilinen anahtarları
+    engeller, beyaz liste şemaya eklenecek yeni ilişkileri de kendiliğinden kapsar.
+- **Kanıt:** `tenant.test.ts` (21 test). Açığı bulan test düzeltmeden önce başarısız,
+  sonra başarılı. İlişki alanıyla güncelleme, ekleme ve iç içe yazma için ayrı testler
+  eklendi. Düzeltme sonrası build, birim testleri, veritabanı testleri ve tarayıcıda
+  9 işlemlik deneme (müşteri, plan, abonelik başlat, yenile, iptal) geçti.
+- **Neyi kapsamıyor:**
+  - Ham `prisma` kullanan dosyalar (`auth.ts`, `test-destek/veri.ts`) filtreden geçmez.
+    Hangi dosyaların ham `prisma` kullanabileceği `kurallar.test.ts` ile denetlenir.
+  - Koruma uygulama katmanındadır. Müşteri, plan ve kullanıcı tablolarında
+    veritabanı düzeyinde ikinci bir savunma hattı yoktur. Abonelik ve olay tabloları
+    bileşik anahtarlarla korunur.
+  - Beyaz liste Prisma'nın iç dosya yoluna (`generated/prisma/internal/prismaNamespace`)
+    bağlıdır. Prisma güncellenince yol değişebilir. Değişirse tip kontrolü ve testler
+    bunu yakalar.
+
+**Açık 2: Firma güncellemesi başka firma kimliğiyle istenince kendi firmaya uygulanıyor (açık, issue)**
+- `tenant.update({ where: { id: B } })` hata vermiyor. Filtre kimliği oturumdaki
+  firmayla değiştirdiği için güncelleme A'nın kendi kaydına uygulanıyor. B etkilenmiyor,
+  yani sızıntı yok, ama davranış yanıltıcı. Ayarlar (CAC) sayfası yazılırken ele alınacak.
+
+**İleride değerlendirilecek önlemler**
+- **Gün 12, `tenantId` değiştirilemez tetikleyicisi:** PostgreSQL tetikleyicisi ile
+  customers, plans, users, subscriptions ve subscription_events tablolarında `tenantId`
+  güncellemesi reddedilir. Böylece uygulama kodu ne yaparsa yapsın kayıt başka firmaya
+  taşınamaz. SQL migration dosyasına elle yazılır. Prisma'nın sonraki migration'larda
+  bu tetikleyiciyi silmeye çalışıp çalışmadığı kontrol edilmelidir. Row Level Security
+  (RLS) bağlantı havuzuyla birlikte 2 haftalık kapsam için ağır bulundu.
+- **SSL modu:** PostgreSQL sürücüsü (`pg`) `sslmode=require` için gelecekteki bir
+  sürümde daha zayıf davranışa geçileceğini bildiriyor. Bugün en sıkı mod
+  (`verify-full`) uygulanıyor. Bağlantı adreslerinin ileride açıkça
+  `sslmode=verify-full` ile güncellenmesi değerlendirilecek.
+
+### Doğrulanan güvenceler
+
+| Güvence | Kanıt |
+|---|---|
+| A firması B'nin müşteri, plan ve aboneliklerini listeleyemez, bulamaz, güncelleyemez, pasife alamaz | `tenant.test.ts` |
+| Tenant filtresi `$transaction` içindeki sorgulara da uygulanır | `tenant.test.ts` (iptal ve yenileme) |
+| Başka firmanın müşterisi ve planıyla abonelik açmak, aboneliğine olay yazmak veritabanında reddedilir (bileşik anahtarlar) | `tenant.test.ts` |
+| Eklerken gönderilen başka tenantId yok sayılır | `tenant.test.ts` |
+| İlişki alanıyla yazma ve iç içe yazma reddedilir | `tenant.test.ts` |
+| finance müşteriyi ve planı pasife alamaz, kayıt değişmez: **doğrulandı** | `pasife-alma.test.ts` (9 test) |
+| Gün 5 kuralı korunur: aktif aboneliği olan kayıt pasife alınamaz | `pasife-alma.test.ts` |
+| Oturum çerezi değiştirilirse (kullanıcı kimliği, imza, anahtar) geçersiz sayılır, süresi dolar | `session.test.ts` (6 test) |
+| Ham `prisma` yalnızca izinli dosyalarda, ham SQL hiçbir yerde | `kurallar.test.ts` (4 test) |
+
+**Test sayıları:**
+- `npm test`: 20 test (dönem 8, rol kuralı 2, oturum 6, statik kural 4)
+- `npm run test:db`: 33 test (duman 3, izolasyon 21, rol 9)
+
+**Testlerin garanti etmedikleri:**
+- Yalnızca test edilen fonksiyonları kapsar. Yeni yazılan bir sorgunun filtreden
+  geçtiğini `kurallar.test.ts` dolaylı olarak denetler, ama yeni bir iş kuralını test etmez.
+- Sunucu işlemlerindeki oturum okuma satırı (`requireUser`, `getTenantDb`) otomatik
+  test edilmez. Elle testle kapsanır.
+- Dashboard metrikleri ve SSE uyarıları henüz yazılmadığı için izolasyonları test
+  edilmedi. İlgili günlerde eklenecek.
+
+### Elle test özeti (test dalı, 2 firma, 4 kullanıcı): 12/12 geçti
+
+- A firmasının yöneticisi ve finans kullanıcısı, B'nin müşteri ve plan sayfalarını
+  adres çubuğuna kimlik yazarak açamadı ("Bulunamadı"). Ters yönde de (B → A) aynı.
+- Listelerde yalnızca kendi firmasının kayıtları göründü.
+- Finance kullanıcısına Ayarlar ve Kullanıcılar menüde görünmedi. Adres çubuğuyla
+  doğrudan gidildiğinde "Bu sayfaya erişim yetkiniz yok" mesajı çıktı.
+- Pasife alma düğmesi finance kullanıcısına müşteri ve plan sayfalarında hiç görünmedi.
+  Sunucu tarafındaki kontrol otomatik rol testleriyle doğrulandı.
+- Finance kullanıcısı müşteri ekleyip güncelleyebildi (kendisine açık işlemler).
+- Çıkış yapıldıktan sonra korumalı sayfaya gidilince giriş sayfasına yönlendirildi.
+
+**Sonradan eklenecekler:**
+- CAC ayarı ve kullanıcı yönetimi (manager)
+- Dashboard metrik izolasyonu
+- SSE uyarısının yalnızca ilgili firmaya gitmesi
+- Aylık MRR grafiği
