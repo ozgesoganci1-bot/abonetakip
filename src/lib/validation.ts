@@ -1,6 +1,6 @@
-// Formların sunucu tarafı doğrulaması: kayıt ve giriş, müşteri, plan ve
-// abonelik başlatma formları. Tarayıcıdaki kontrollere güvenilmez; her form
-// sunucuda bu dosyadaki fonksiyonlarla yeniden kontrol edilir.
+// Formların sunucu tarafı doğrulaması: kayıt ve giriş, müşteri, plan,
+// abonelik başlatma ve CAC ayarı formları. Tarayıcıdaki kontrollere güvenilmez;
+// her form sunucuda bu dosyadaki fonksiyonlarla yeniden kontrol edilir.
 // Bu dosyadaki fonksiyonlar "saf"tır: veritabanına veya çereze dokunmazlar,
 // aynı girdiye her zaman aynı sonucu verirler. Bu yüzden kolay test edilirler.
 
@@ -141,37 +141,55 @@ export function istegeBagliEpostaDogrula(girdi: unknown): Sonuc<string | null> {
 // gerçekçi bir üst sınır koyarak taşmayı ve yazım hatalarını önlüyoruz.
 export const FIYAT_EN_COK = 10_000_000;
 
+// TL tutarı (tam sayı) kontrolünün ortak çekirdeği (Gün 9).
+// Fiyat ve CAC aynı yazım kurallarını kullanır. Bu fonksiyon mesaj üretmez,
+// yalnızca hatanın TÜRÜNÜ söyler. Her alan kendi Türkçe mesajını seçer;
+// böylece fiyat mesajları Gün 4'teki hâliyle birebir aynı kalır.
+// 0 burada hata değildir: fiyatta reddedilir, CAC'de kabul edilir.
+type TamSayiHatasi = "bos" | "eksi" | "ayirac" | "rakamDisi" | "cokBuyuk";
+
+function tamSayiTlCoz(
+  girdi: unknown
+): { ok: true; deger: number } | { ok: false; neden: TamSayiHatasi } {
+  const metin = temizle(girdi);
+  if (metin.length === 0) return { ok: false, neden: "bos" };
+  if (metin.startsWith("-")) return { ok: false, neden: "eksi" };
+  // "1.000" (binlik) ile "12,5" (kuruş) yazımı karışmasın diye ikisi de reddedilir.
+  if (/[.,]/.test(metin)) return { ok: false, neden: "ayirac" };
+  if (!/^\d+$/.test(metin)) return { ok: false, neden: "rakamDisi" };
+  // Çok uzun rakam dizilerini sayıya çevirmeden önce eleriz.
+  const sayi = metin.length > 9 ? Infinity : Number(metin);
+  if (sayi > FIYAT_EN_COK) return { ok: false, neden: "cokBuyuk" };
+  return { ok: true, deger: sayi };
+}
+
 // Fiyat kontrolü: TL cinsinden, 0'dan büyük tam sayı (kuruş yok).
 export function fiyatDogrula(girdi: unknown): Sonuc<number> {
-  const metin = temizle(girdi);
-  if (metin.length === 0) {
-    return { ok: false, hata: "Fiyat boş bırakılamaz." };
+  const sonuc = tamSayiTlCoz(girdi);
+  if (sonuc.ok) {
+    if (sonuc.deger === 0) {
+      return { ok: false, hata: "Fiyat 0'dan büyük olmalıdır." };
+    }
+    return { ok: true, deger: sonuc.deger };
   }
-  if (metin.startsWith("-")) {
-    return { ok: false, hata: "Fiyat 0'dan büyük olmalıdır." };
+  switch (sonuc.neden) {
+    case "bos":
+      return { ok: false, hata: "Fiyat boş bırakılamaz." };
+    case "eksi":
+      return { ok: false, hata: "Fiyat 0'dan büyük olmalıdır." };
+    case "ayirac":
+      return {
+        ok: false,
+        hata: "Fiyatı nokta veya virgül kullanmadan, tam sayı olarak yazın (ör. 1000). Kuruş girilmez.",
+      };
+    case "rakamDisi":
+      return { ok: false, hata: "Fiyat yalnızca rakamlardan oluşmalıdır." };
+    case "cokBuyuk":
+      return {
+        ok: false,
+        hata: `Fiyat en fazla ${FIYAT_EN_COK.toLocaleString("tr-TR")} TL olabilir.`,
+      };
   }
-  // "1.000" (binlik) ile "12,5" (kuruş) yazımı karışmasın diye ikisi de reddedilir.
-  if (/[.,]/.test(metin)) {
-    return {
-      ok: false,
-      hata: "Fiyatı nokta veya virgül kullanmadan, tam sayı olarak yazın (ör. 1000). Kuruş girilmez.",
-    };
-  }
-  if (!/^\d+$/.test(metin)) {
-    return { ok: false, hata: "Fiyat yalnızca rakamlardan oluşmalıdır." };
-  }
-  // Çok uzun rakam dizilerini sayıya çevirmeden önce eleriz.
-  const fiyat = metin.length > 9 ? Infinity : Number(metin);
-  if (fiyat === 0) {
-    return { ok: false, hata: "Fiyat 0'dan büyük olmalıdır." };
-  }
-  if (fiyat > FIYAT_EN_COK) {
-    return {
-      ok: false,
-      hata: `Fiyat en fazla ${FIYAT_EN_COK.toLocaleString("tr-TR")} TL olabilir.`,
-    };
-  }
-  return { ok: true, deger: fiyat };
 }
 
 // Plan aralıkları ve ekranda gösterilen Türkçe karşılıkları.
@@ -299,4 +317,35 @@ export function abonelikBaslatGirdisiniDogrula(girdi: {
   if (!musteri.ok) alanHatalari.musteriId = musteri.hata;
   if (!plan.ok) alanHatalari.planId = plan.hata;
   return { ok: false, alanHatalari };
+}
+
+// ---------- CAC ayarı (Gün 9) ----------
+
+// CAC üst sınırı fiyatla aynıdır.
+export const CAC_EN_COK = FIYAT_EN_COK;
+
+// CAC kontrolü: TL cinsinden tam sayı (kuruş yok). Fiyattan tek farkı: 0 kabul edilir.
+// 0, "CAC girilmedi" anlamına gelir. Bu durumda LTV/CAC hesaplanmaz
+// (bkz. metrikler.ts, ltvCacOrani). Böylece yönetici değeri sıfırlayabilir.
+export function cacDogrula(girdi: unknown): Sonuc<number> {
+  const sonuc = tamSayiTlCoz(girdi);
+  if (sonuc.ok) return { ok: true, deger: sonuc.deger };
+  switch (sonuc.neden) {
+    case "bos":
+      return { ok: false, hata: "CAC boş bırakılamaz. Girmek istemiyorsanız 0 yazın." };
+    case "eksi":
+      return { ok: false, hata: "CAC negatif olamaz." };
+    case "ayirac":
+      return {
+        ok: false,
+        hata: "CAC değerini nokta veya virgül kullanmadan, tam sayı olarak yazın (ör. 5000). Kuruş girilmez.",
+      };
+    case "rakamDisi":
+      return { ok: false, hata: "CAC yalnızca rakamlardan oluşmalıdır." };
+    case "cokBuyuk":
+      return {
+        ok: false,
+        hata: `CAC en fazla ${CAC_EN_COK.toLocaleString("tr-TR")} TL olabilir.`,
+      };
+  }
 }
