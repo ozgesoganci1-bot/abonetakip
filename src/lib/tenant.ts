@@ -7,10 +7,29 @@
 //   - Tanımadığı bir işlemle karşılaşırsa hata verir ("izin ver" değil "durdur").
 // tenantId hiçbir zaman istemciden (form, URL) alınmaz, yalnızca oturumdan gelir.
 //
+// YAZMA KORUMASI (Gün 6): Ekleme ve güncelleme verisinde YALNIZCA tablonun kendi
+// sütunları kullanılabilir (beyaz liste). İlişki alanları (ör. "tenant", "customer",
+// "subscriptions") reddedilir. Neden? Prisma'da bir kayıt ilişki üzerinden de başka
+// firmaya bağlanabilir: data: { tenant: { connect: { id: "B" } } }. Gün 6 testleri bu
+// yolla bir müşterinin başka firmaya taşınabildiğini gösterdi. İç içe yazımlar
+// (connect, create, connectOrCreate ...) yalnızca ilişki alanlarının altında yazılabildiği
+// için beyaz liste hepsini en üst düzeyde durdurur.
+// Ayrıca güncellemede "id" ve "tenantId" değiştirilemez.
+// Sütun listeleri Prisma'nın şemadan ürettiği koddan okunur; şemaya yeni sütun
+// eklenince ayrıca güncellemek gerekmez.
+//
 // YASAK: prisma.$queryRaw / $executeRaw. Ham SQL bu filtreden geçmez.
 
 import { prisma } from "./db";
 import { requireUser } from "./auth";
+import {
+  TenantScalarFieldEnum,
+  UserScalarFieldEnum,
+  CustomerScalarFieldEnum,
+  PlanScalarFieldEnum,
+  SubscriptionScalarFieldEnum,
+  SubscriptionEventScalarFieldEnum,
+} from "../../generated/prisma/internal/prismaNamespace";
 
 // Okuma türü işlemler.
 const OKUMA = new Set([
@@ -36,15 +55,55 @@ const GUNCELLEME_SILME = new Set([
 // Çoklu kayıt ekleme işlemleri.
 const COKLU_EKLEME = new Set(["createMany", "createManyAndReturn"]);
 
+// Her tablonun yazılabilir sütunları (Prisma'nın ürettiği listelerden).
+// Bu listede olmayan bir tablo için yazma işlemi durdurulur.
+const SUTUNLAR: Record<string, ReadonlySet<string>> = {
+  Tenant: new Set<string>(Object.values(TenantScalarFieldEnum)),
+  User: new Set<string>(Object.values(UserScalarFieldEnum)),
+  Customer: new Set<string>(Object.values(CustomerScalarFieldEnum)),
+  Plan: new Set<string>(Object.values(PlanScalarFieldEnum)),
+  Subscription: new Set<string>(Object.values(SubscriptionScalarFieldEnum)),
+  SubscriptionEvent: new Set<string>(Object.values(SubscriptionEventScalarFieldEnum)),
+};
+
 // Değerin düz bir nesne olup olmadığını kontrol eder.
 function nesneMi(deger: unknown): deger is Record<string, unknown> {
   return typeof deger === "object" && deger !== null && !Array.isArray(deger);
 }
 
-// Güncelleme verisi tenantId içeriyorsa durdurur: bir kayıt başka firmaya taşınamaz.
-function tenantIdDegistirilmesinDiye(veri: unknown): void {
-  if (nesneMi(veri) && "tenantId" in veri) {
-    throw new Error("tenantId değiştirilemez.");
+// Ekleme ve güncelleme verisini denetler. Kurala uymayan ilk alanda durdurur.
+//   ekleme:     yalnızca tablonun sütunları (tenantId yazılabilir, sonra zaten ezilir)
+//   guncelleme: yalnızca tablonun sütunları, "id" ve "tenantId" hariç
+// veri: tek bir nesne ya da (createMany için) nesne dizisi.
+function veriyiDenetle(
+  model: string,
+  veri: unknown,
+  tur: "ekleme" | "guncelleme"
+): void {
+  const sutunlar = SUTUNLAR[model];
+  if (!sutunlar) {
+    throw new Error(`"${model}" tablosu kiracı filtresi tarafından tanınmıyor.`);
+  }
+
+  const satirlar = Array.isArray(veri) ? veri : [veri];
+  for (const satir of satirlar) {
+    // Nesne değilse (ör. eksik veri) Prisma kendi doğrulamasıyla reddeder.
+    if (!nesneMi(satir)) continue;
+
+    for (const alan of Object.keys(satir)) {
+      if (tur === "guncelleme" && alan === "tenantId") {
+        // Bir kayıt başka firmaya taşınamaz.
+        throw new Error("tenantId değiştirilemez.");
+      }
+      if (tur === "guncelleme" && alan === "id") {
+        throw new Error('"id" alanı bu işlemde kullanılamaz: kayıt kimliği değiştirilemez.');
+      }
+      if (!sutunlar.has(alan)) {
+        throw new Error(
+          `"${alan}" alanı bu işlemde kullanılamaz: yalnızca tablonun kendi sütunları yazılabilir.`
+        );
+      }
+    }
   }
 }
 
@@ -67,7 +126,7 @@ export function tenantaBagliDb(tenantId: string) {
               return query(a as typeof args);
             }
             if (operation === "update") {
-              tenantIdDegistirilmesinDiye(a.data);
+              veriyiDenetle(model, a.data, "guncelleme");
               a.where = { ...kosul, id: tenantId };
               return query(a as typeof args);
             }
@@ -81,18 +140,21 @@ export function tenantaBagliDb(tenantId: string) {
           }
 
           if (GUNCELLEME_SILME.has(operation)) {
-            tenantIdDegistirilmesinDiye(a.data);
+            // Silme işlemlerinde "data" yoktur; denetim yalnızca güncellemede çalışır.
+            if (a.data !== undefined) veriyiDenetle(model, a.data, "guncelleme");
             a.where = { ...kosul, tenantId };
             return query(a as typeof args);
           }
 
           if (operation === "create") {
+            veriyiDenetle(model, a.data, "ekleme");
             const veri = nesneMi(a.data) ? a.data : {};
             a.data = { ...veri, tenantId };
             return query(a as typeof args);
           }
 
           if (COKLU_EKLEME.has(operation)) {
+            veriyiDenetle(model, a.data, "ekleme");
             const liste = Array.isArray(a.data) ? a.data : [a.data];
             a.data = liste.map((satir) => ({
               ...(nesneMi(satir) ? satir : {}),
@@ -102,7 +164,8 @@ export function tenantaBagliDb(tenantId: string) {
           }
 
           if (operation === "upsert") {
-            tenantIdDegistirilmesinDiye(a.update);
+            veriyiDenetle(model, a.create, "ekleme");
+            veriyiDenetle(model, a.update, "guncelleme");
             const olustur = nesneMi(a.create) ? a.create : {};
             a.where = { ...kosul, tenantId };
             a.create = { ...olustur, tenantId };
