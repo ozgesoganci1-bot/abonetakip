@@ -65,6 +65,12 @@ export type MetrikOzeti = {
   nedenler: Partial<Record<"churn" | "arpu" | "ortalamaOmurAy" | "ltv" | "ltvCac", string>>;
 };
 
+// Bir aydaki müşteri hareketi (Gün 9). İkisi de müşteri sayısıdır.
+export type AyHareketi = {
+  yeni: number;
+  iptal: number;
+};
+
 // ---------- Yardımcılar ----------
 
 // Türkiye saati UTC'nin 3 saat ilerisidir (2016'dan beri yaz saati uygulanmıyor).
@@ -79,6 +85,13 @@ export function ayAraligi(yil: number, ay: number): AyAraligi {
   const baslangic = new Date(Date.UTC(yil, ay - 1, 1) - TURKIYE_FARKI_MS);
   const bitis = new Date(Date.UTC(yil, ay, 1) - TURKIYE_FARKI_MS);
   return { baslangic, bitis };
+}
+
+// "Ay başı" anı: ay başlangıcından 1 ms önce (önceki ayın son anı).
+// Böylece iki ay boşluksuz birbirine bağlanır: tam 1'i 00:00'da yapılan bir iptal
+// yeni ayın hesabına girer. Ay başlangıcının kendisine baksaydık bu iptal hiçbir aya sayılmazdı.
+function ayBasiAni(aralik: AyAraligi): Date {
+  return new Date(aralik.baslangic.getTime() - 1);
 }
 
 // Ayın son anı: bitişten 1 milisaniye önce. Ay sonu durumları bu ana göre değerlendirilir.
@@ -173,13 +186,10 @@ function andaAktifMusteriler(abonelikler: AbonelikGirdisi[], an: Date): Set<stri
 // Sonuçları:
 //   - Ay içinde gelip aynı ay giden müşteri sayılmaz (paydada yok, paya da girmez).
 //   - Ay içinde iptal edip yeni abonelik başlatan (plan değiştiren) müşteri churn değildir.
-// "Ay başı" olarak ay başlangıcından 1 ms önceki an (önceki ayın son anı) kullanılır.
-// Böylece iki ay boşluksuz birbirine bağlanır: tam 1'i 00:00'da yapılan bir iptal
-// yeni ayın churn'üne girer. Ay başlangıcının kendisine baksaydık bu iptal hiçbir aya sayılmazdı.
+// "Ay başı" için bkz. ayBasiAni.
 // Ay başında aktif müşteri yoksa sıfıra bölme olur -> null.
 export function aylikChurn(abonelikler: AbonelikGirdisi[], aralik: AyAraligi): number | null {
-  const ayBasiAni = new Date(aralik.baslangic.getTime() - 1);
-  const ayBasindakiler = andaAktifMusteriler(abonelikler, ayBasiAni);
+  const ayBasindakiler = andaAktifMusteriler(abonelikler, ayBasiAni(aralik));
   if (ayBasindakiler.size === 0) return null;
 
   const aySonundakiler = andaAktifMusteriler(abonelikler, ayinSonAni(aralik));
@@ -270,4 +280,48 @@ export function metrikOzeti(
     ltvCac: yuvarlaVeyaNull(ltvCac, 2),
     nedenler,
   };
+}
+
+// ---------- Dashboard yardımcıları (Gün 9) ----------
+
+// Verilen an, Türkiye saatine göre hangi yılın hangi ayında? (ay: 1-12)
+// Sunucu (Render) UTC çalışır. Gece 00:00-03:00 arasında UTC hâlâ önceki aydadır;
+// bu yüzden ay, Türkiye farkı eklenerek bulunur. Sonuç ayAraligi'ne verilir.
+export function turkiyeAyi(an: Date): { yil: number; ay: number } {
+  const turkiyeSaatiyle = new Date(an.getTime() + TURKIYE_FARKI_MS);
+  return { yil: turkiyeSaatiyle.getUTCFullYear(), ay: turkiyeSaatiyle.getUTCMonth() + 1 };
+}
+
+// Bir aydaki müşteri hareketi. Churn ile AYNI müşteri bazlı mantık ve AYNI iki an:
+//   - iptal: ay başında aktif olup ayın son anında HİÇ aktif aboneliği kalmayan müşteri.
+//            Bu sayı churn'ün payıyla birebir aynıdır.
+//   - yeni:  ay başında aktif aboneliği olmayıp ayın son anında aktif aboneliği olan müşteri.
+// Sonuçları:
+//   - Plan değiştiren müşteri (iptal + yeni abonelik) ne yeni ne iptal sayılır.
+//   - Ay içinde gelip aynı ay giden müşteri ne yeni ne iptal sayılır.
+// İçinde bulunulan ay için "ayın son anı" henüz gelmemiştir. Gelecek tarihli başlangıç
+// ve iptal olmadığı için sonuç "ay başından bugüne" ile aynıdır.
+export function ayHareketi(abonelikler: AbonelikGirdisi[], aralik: AyAraligi): AyHareketi {
+  const ayBasindakiler = andaAktifMusteriler(abonelikler, ayBasiAni(aralik));
+  const aySonundakiler = andaAktifMusteriler(abonelikler, ayinSonAni(aralik));
+
+  let iptal = 0;
+  for (const musteriId of ayBasindakiler) {
+    if (!aySonundakiler.has(musteriId)) iptal++;
+  }
+  let yeni = 0;
+  for (const musteriId of aySonundakiler) {
+    if (!ayBasindakiler.has(musteriId)) yeni++;
+  }
+  return { yeni, iptal };
+}
+
+// LTV/CAC için sağlıklılık eşiği (sektörde sık anılan değer, ADR kararı).
+export const LTV_CAC_SAGLIKLI_ESIK = 3;
+
+// LTV/CAC oranı sağlıklı mı? 3 ve üzeri sağlıklı, altı "dikkat".
+// Dashboard'da gösterilen (2 ondalığa yuvarlanmış) değerle çağrılır; böylece ekrandaki
+// sayı ile etiket her zaman birbiriyle tutarlıdır.
+export function ltvCacSaglikliMi(oran: number): boolean {
+  return oran >= LTV_CAC_SAGLIKLI_ESIK;
 }
