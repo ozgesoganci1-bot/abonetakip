@@ -1566,7 +1566,7 @@ _[1 ekran görüntüsü eklendi]_
 > 4. Yapıştır. İçerik şuna benzer görünür:
 >
 > ```
-> DATABASE_URL="postgresql://neondb_owner:...@ep-xxxx.c-8.eu-central-1.aws.neon.tech/neondb?sslmode=require"
+> DATABASE_URL="[DATABASE_URL]"
 > ```
 >
 > Eğer yapıştırdığında başında `DATABASE_URL=` yoksa (yalnızca `postgresql://...` ile başlıyorsa), başına `DATABASE_URL="` ekle ve sonuna `"` koy. Adresin içinde `-pooler` olmamalı. Kaydet (`Cmd + S`).
