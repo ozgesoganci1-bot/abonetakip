@@ -558,3 +558,99 @@ panelinden bir kez daha doğrulanacak.
 - Dashboard ekranı: metrikler `getTenantDb()` ile okunan veriden bu fonksiyonlarla
   hesaplanacak, `null` değerler neden metniyle gösterilecek.
 - CAC değeri firma ayarlarından gelecek (issue #24 ile birlikte Ayarlar sayfası).
+
+## Gün 9 kararları (22 Ekim 2026): KPI dashboard ve CAC ayarı
+
+**Durum:** Kod tamamlandı ve `main`'e birleşti (squash commit `86bf98d`). Render'da yayında.
+**Sonuç:** `npm test` 59 test, `npm run test:db` 44 test geçiyor; `npm run build` başarılı.
+Dashboard ve Ayarlar ekranları Neon test dalında elle kontrol edildi (aşağıda "Elle test").
+
+### Kararlar
+
+**K9.1: Dashboard sayıları abonelik kayıtlarından hesaplanır, olay tablosundan değil**
+- **Karar:** `src/lib/dashboard-verisi.ts` abonelikleri plan bilgisiyle birlikte `getTenantDb()`
+  üzerinden okur, düz veriye çevirir ve Gün 8'deki `metrikOzeti` ile `ayHareketi`
+  fonksiyonlarını çağırır. Sayfada ve bu dosyada formül yoktur.
+- **Gerekçe:** Gün 8 fonksiyonları zaten `startedAt` ve `canceledAt` ile çalışır. Tek kaynak
+  kullanmak, olay tablosu ile abonelik tablosunun birbirinden sapma riskini ortadan kaldırır.
+  Kiracı filtresi tek yerde, okuma adımında uygulanır.
+
+**K9.2: Churn 4 ondalıkla tutulur, ekranda yüzde olarak 1 ondalıkla gösterilir**
+- **Karar:** `metrikOzeti` churn'ü 4 ondalığa yuvarlar (2/3 → 0,6667), ekranda `%66,7` görünür.
+  Ömür, LTV ve LTV/CAC yuvarlanmış değerden değil HAM churn'den hesaplanır.
+- **Gerekçe:** 2 ondalık olsaydı 0,67 → `%67,0` görünürdü; ekran ile elle hesap arasında fark çıkardı.
+  Ekran biçimleri `src/lib/bicim.ts` içindedir (yerleşik `Intl`, ek paket yok).
+
+**K9.3: Ay hareketi (yeni / iptal) müşteri bazlıdır ve churn ile aynı mantığı kullanır**
+- **Karar:** `ayHareketi`: iptal = ay başında aktif olup ay sonunda hiç aktif aboneliği kalmayan
+  müşteri (churn'ün payıyla birebir aynıdır). Yeni = ay başında aktif olmayıp ay sonunda aktif olan müşteri.
+- **Sonuç:** Plan değiştiren müşteri ne yeni ne iptal sayılır. Ay içinde gelip giden müşteri de sayılmaz.
+
+**K9.4: "Bu ay" Türkiye saatine göre, ay başından bugüne**
+- **Karar:** `turkiyeAyi(an)` ayı UTC+3 farkıyla bulur ve `ayAraligi`'na verir.
+- **Gerekçe:** Render sunucusu UTC çalışır; gece 00:00-03:00 arasında UTC hâlâ önceki aydadır.
+
+**K9.5: CAC ayarı Ayarlar sayfasında, yalnızca manager, sunucuda doğrulanır**
+- **Karar:** Form `src/app/(panel)/ayarlar/` altındadır. Asıl mantık `src/lib/cac-ayari.ts`
+  içindeki `cacKaydetCekirdek` fonksiyonundadır (`pasife-alma.ts` ile aynı yapı: kullanıcı ve
+  `db` parametre olarak verilir, testlerden doğrudan çağrılır). Sunucu işlemi yalnızca oturumu
+  okur, çekirdeği çağırır ve sayfaları yeniler.
+- **Kurallar:** Rol kontrolü sunucuda yapılır, finance hiçbir sorgu yapılmadan durdurulur.
+  `tenantId` formdan alınmaz; hangi firmanın güncelleneceğini yalnızca `db` belirler.
+  `tenant.ts` ayrıca Tenant güncellemesinde `id` koşulunu oturumdaki değerle ezer.
+  CAC tam sayı TL olmalıdır, üst sınır 10.000.000. **0 = "CAC girilmedi"** anlamına gelir ve
+  LTV/CAC hesaplanmaz.
+- **Doğrulama:** Fiyat ve CAC ortak `tamSayiTlCoz` yardımcısını kullanır; fiyat hata mesajları
+  değişmedi.
+
+**K9.6: LTV/CAC etiketi 3 eşiğiyle ve simge + metin olarak gösterilir**
+- **Karar:** 3 ve üzeri "Sağlıklı", altı "Dikkat" (`ltvCacSaglikliMi`). Karşılaştırma ekranda
+  gösterilen (2 ondalıklı) değerle yapılır, böylece sayı ile etiket tutarlı kalır. Anlam yalnızca
+  renge bırakılmaz: rozette simge ve metin vardır (yeni sarı ton).
+- **CAC eksikse:** LTV hesaplandığı hâlde LTV/CAC yoksa neden "CAC girilmedi"dir. Manager'a
+  Ayarlar bağlantısı gösterilir; finance'a "Firma yöneticisi Ayarlar'dan girebilir" yazılır.
+
+**K9.7: Elle test yalnızca Neon test dalında, canlı veritabanı koruması ile**
+- **Sorun:** `.env` canlı veritabanıdır. `npm run dev` canlı veriye bağlanır ve `next dev`,
+  `.env.test`'te eksik olan değişkeni `.env`'den tamamlar.
+- **Karar:** `npm run dev:test` uygulamayı `.env.test` ile başlatır, `npm run demo:veri -- <e-posta>`
+  test dalındaki mevcut bir firmaya sahte demo verisini ekler. İkisi de başlamadan önce
+  `src/test-destek/canli-koruma.ts` kontrolünü yapar: `TEST_VERITABANI=evet` olmalı ve
+  `DATABASE_URL` canlı adresle AYNI Neon sunucusunu göstermemeli (havuzlu `-pooler` ve doğrudan
+  adres aynı sunucu sayılır). Adres okunamazsa "izin ver" değil "durdur" denir. Hiçbir adres,
+  parola veya sunucu adı ekrana yazılmaz.
+- **Demo betiği:** Firma veya kullanıcı oluşturmaz, parola yazmaz, CAC'ye dokunmaz. Aboneliği olan
+  firmaya hiçbir şey yazmaz (ikinci çalıştırma engellenir). Kayıtlar tek işlemde yazılır.
+- **Not:** `canli-koruma.ts` onaylı planda yoktu; yeni sohbet ekledi, bu sohbette incelenip kabul edildi.
+
+### Test kapsamı
+- `bicim.test.ts` (4), `validation.test.ts` (7), `canli-koruma.test.ts` (2), `metrikler.test.ts`
+  (Gün 9 senaryosu, churn yuvarlama, `ayHareketi`, `turkiyeAyi`, `ltvCacSaglikliMi`): `npm test`
+- `cac-ayari.test.ts` (5: finance reddi, geçersiz girdiler, başarı, sıfırlama, kiracı bağımsızlığı) ve
+  `dashboard-verisi.test.ts` (3: yalnızca kendi firmanın aboneliği, yeni/iptal sayımı, CAC firmaya özel): `npm run test:db`
+
+### Elle test (Neon test dalı)
+Senaryo: A aylık 1.000 TL kalıyor; B yıllık 12.000 TL ve C aylık 500 TL bu ay iptal; CAC 5.000.
+- CAC girilmeden: MRR 1.000 TL, churn %66,7, LTV 1.500 TL (ARPU 1.000 TL × ömür 1,5 ay),
+  LTV/CAC "—" ve "CAC girilmedi" bağlantısı, aktif 1 / yeni 0 / iptal 2.
+- `12,5` yazınca alan hatası, kayıt yok. `5000` yazınca "CAC 5.000 TL olarak kaydedildi."
+- CAC 5.000 sonrası LTV/CAC 0,3 ve sarı "! Dikkat (3'ün altında)".
+- Demo betiği aynı firmada ikinci kez çalıştırılınca "Bu firmada zaten abonelik var" ile durdu.
+
+### Bilinen sınırlar
+- Finance rolü tarayıcıda elle denenmedi: Kullanıcılar sayfası henüz yer tutucu, finance kullanıcı
+  eklenemiyor. Kural `cac-ayari.test.ts` ile otomatik test edilir.
+- Ayın ilk günlerinde ay başında aktif müşteri olmayabilir; churn bu durumda "hesaplanamadı" gösterilir (null).
+- Firmanın bütün abonelikleri belleğe okunur. Küçük firmalar için yeterlidir.
+- Dashboard hesabı güncel plan fiyatını okur (fiyat kopyası yok, Gün 8 D1). Aylık MRR grafiği
+  gününde (#7) karara bağlanacak.
+- Arayüz için otomatik ekran testi yoktur; ekranlar elle kontrol edildi.
+- Issue #24 (Tenant güncellemesinde başka kimlik verilince kendi firmaya uygulanması) çözülmedi;
+  davranış `tenant.test.ts` ile belgelidir ve CAC formu bundan etkilenmez (kimlik formdan gelmez).
+- pg SSL modu uyarısı Gün 12'de ele alınacak.
+
+### Süreç notları
+- Yeni sohbet `package.json` için tam dosya önerdi ve içine var olmayan `@tailwindcss/turbopack`
+  bağımlılığını yazmıştı (Tailwind 4 `@tailwindcss/postcss` kullanır). Dosya reddedildi,
+  yalnızca iki betik satırı (`dev:test`, `demo:veri`) ve test listeleri elle eklendi.
+- Dosyalar terminalden boş oluşturuldu ve kod VS Code'a yapıştırıldı; uzun yapıştırmalar kesilmesin diye.
