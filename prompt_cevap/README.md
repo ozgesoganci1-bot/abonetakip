@@ -17,6 +17,7 @@ Bu klasör, AboneTakip projesini geliştirirken yapay zekâya yazdığım prompt
 | 5 | Abonelik yaşam döngüsü ve olay kaydı | [gun_5_prompt_cevap.md](gun_5_prompt_cevap.md) |
 | 6 | Kiracı izolasyonu ve rol testleri | [gun_6_prompt_cevap.md](gun_6_prompt_cevap.md) |
 | 7 | Hafta 1 inceleme turu, hata düzeltme ve kod anlama | [gun_7_prompt_cevap.md](gun_7_prompt_cevap.md) |
+| 8 | Metrik hesaplama fonksiyonları | [gun_8_prompt_cevap.md](gun_8_prompt_cevap.md) |
 
 Sonraki günler çalışma ilerledikçe bu klasöre eklenecektir.
 
@@ -36,6 +37,8 @@ Sonraki günler çalışma ilerledikçe bu klasöre eklenecektir.
 - Yalnızca tamamen selamlaşma olan 3 mesaj çifti (teşekkür, iyi geceler, görüşürüz) çıkarılmış, yerlerine `[selamlaşma mesajı ve cevabı çıkarıldı]` notu konmuştur (Gün 3b'de 2, Gün 4'te 1). İşle ilgili hiçbir mesaj çıkarılmamıştır.
 - Maskelenenler: Mac kullanıcı adı ve bilgisayar adı (`kullanici`, `bilgisayar`), okul adı kısaltması (`[okul]`), gerçek Neon sunucu adı (`[NEON_HOST]`) ve sohbete yapıştırılan bir parola parçası (`[NEON_PAROLA]`). Başka hiçbir yerde metne dokunulmamıştır.
 - Gün 2'de gerçek bir veritabanı adresinin yanlışlıkla `.env.example` dosyasına girmesi olayı yaşandı. Parola yenilendi, kural projeye eklendi (ayrıntı: [ADR](../docs/02_ADR.md)).
+- Gün 6 ve Gün 7'de de küçük güvenlik olayları yaşandı: test dalının adresi `.env.test.example` dosyasına girdi (commit öncesi tarama yakaladı, commit edilmedi) ve bir kayıt dosyasında maskelenmemiş bir adres bulundu (maskelendi). Parola yenilendi. Ayrıntılar: [ADR](../docs/02_ADR.md).
+- Gün 6, 7 ve 8 ayrı sohbetlerde yürütüldü. Ana sohbetteki yönlendirme ve inceleme mesajları bu dosyalara dahil değildir. Gün 7 dosyasında sistemin kendiliğinden eklediği "devam et" mesajı, ben yazmadığım için köşeli parantezli bir notla işaretlenmiştir.
 
 ## İlgili belgeler
 
