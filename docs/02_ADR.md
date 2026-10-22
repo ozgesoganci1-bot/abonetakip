@@ -507,6 +507,7 @@ temiz. Dashboard ekranı henüz yok, bu gün yalnızca hesap katmanı yazıldı.
   bu yüzden sabit +3 saat yeterli ve basittir. Aksi halde 1 Kasım 01:00 (TR) gibi bir
   iptal Ekim ayına yazılırdı.
 - **Testler:** Test tarihleri `+03:00` ile yazıldı.
+- **Ay geçişi:** Ay başı olarak ay başlangıcından 1 milisaniye önceki an kullanılır. Böylece ayın ilk günü 00:00 (TR) anında yapılan bir iptal yeni ayın churn değerine girer, hiçbir iptal iki aya birden ya da hiçbir aya yazılmaz.
 
 **K8.5: Sıfıra bölme ve belirsiz durumlarda `null` döner, `0` ya da `Infinity` değil**
 - **Gerekçe:** "LTV = 0 TL" yöneticiye "müşteri değersiz" mesajı verir, `Infinity`
@@ -516,7 +517,7 @@ temiz. Dashboard ekranı henüz yok, bu gün yalnızca hesap katmanı yazıldı.
 - **Zincirleme:** Churn hesaplanamazsa ömür, LTV ve LTV/CAC de hesaplanamaz. Özet
   fonksiyonu her `null` için ekranda gösterilebilecek bir neden metni verir.
 
-**K8.6: Yuvarlama yalnızca özet fonksiyonunda yapılır**
+**K8.6: Yuvarlama yalnızca iki çıktı fonksiyonunda yapılır (`metrikOzeti`, `mrrGecmisi`)**
 - **Karar:** İç hesaplarda yuvarlama yok (yıllık 1.000 TL plan aylık 83,333... olarak
   taşınır). Para değerleri en yakın tam TL'ye, oranlar 2 ondalığa, ömür 1 ondalığa
   yuvarlanır.
@@ -532,6 +533,7 @@ durumları, tam sınır tarihleri, aynı müşterinin birden çok kaydı ve ay i
 başlayıp biten müşteri sınanır.
 
 ### Bilinen sınırlar
+- **Churn gösterim hassasiyeti:** Özet fonksiyonu churn değerini 2 ondalığa yuvarlar (0,04 = %4), yani ekranda tam yüzde görünür (örneğin %3,5 değeri %4 olur). LTV ve ömür yuvarlanmamış churn değerinden hesaplandığı için etkilenmez. Dashboard gününde gerekirse 4 ondalığa çıkarılacak.
 - **Fiyat kopyası yok (D1):** Abonelik kaydı başlangıç fiyatını saklamıyorsa plan
   fiyatı değiştiğinde geçmiş MRR de değişir. Güncel MRR etkilenmez. Karar (abonelikte
   fiyat kopyası tutmak) aylık MRR grafiği gününde verilecek. Bu gün şemaya dokunulmadı.
