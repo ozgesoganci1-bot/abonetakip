@@ -635,7 +635,6 @@ export default async function PanelLayout({
 94-    "code" in hata &&
 95-    (hata as { code: unknown }).code === "P2002"
 96-  );
-ozgesogan
 ````
 
 ### Claude cevabı 9 · 20 Eki 2026 22:32

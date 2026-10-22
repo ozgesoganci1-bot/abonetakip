@@ -18,6 +18,7 @@ Bu klasör, AboneTakip projesini geliştirirken yapay zekâya yazdığım prompt
 | 6 | Kiracı izolasyonu ve rol testleri | [gun_6_prompt_cevap.md](gun_6_prompt_cevap.md) |
 | 7 | Hafta 1 inceleme turu, hata düzeltme ve kod anlama | [gun_7_prompt_cevap.md](gun_7_prompt_cevap.md) |
 | 8 | Metrik hesaplama fonksiyonları | [gun_8_prompt_cevap.md](gun_8_prompt_cevap.md) |
+| 9 | KPI dashboard ve CAC ayarı | [gun_9_prompt_cevap.md](gun_9_prompt_cevap.md) |
 
 Sonraki günler çalışma ilerledikçe bu klasöre eklenecektir.
 
