@@ -4,10 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:test": "node --env-file=.env.test src/test-destek/dev-test.ts",
+    "demo:veri": "node --env-file=.env.test --import ./src/test-destek/kancalar.mjs src/test-destek/demo-verisi.ts",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --import ./src/test-destek/kancalar.mjs --test src/lib/donem.test.ts src/lib/yetki.test.ts src/lib/session.test.ts src/test-destek/kurallar.test.ts src/lib/metrikler.test.ts src/lib/validation.test.ts src/lib/bicim.test.ts",
+    "test": "node --import ./src/test-destek/kancalar.mjs --test src/lib/donem.test.ts src/lib/yetki.test.ts src/lib/session.test.ts src/test-destek/kurallar.test.ts src/lib/metrikler.test.ts src/lib/validation.test.ts src/lib/bicim.test.ts src/test-destek/canli-koruma.test.ts",
     "test:db": "node --env-file=.env.test --import ./src/test-destek/kancalar.mjs --test --test-concurrency=1 src/test-destek/duman.test.ts src/lib/tenant.test.ts src/lib/pasife-alma.test.ts src/lib/cac-ayari.test.ts src/lib/dashboard-verisi.test.ts"
   },
   "dependencies": {
