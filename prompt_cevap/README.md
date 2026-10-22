@@ -15,6 +15,8 @@ Bu klasör, AboneTakip projesini geliştirirken yapay zekâya yazdığım prompt
 | 3b | Arayüzü profesyonelleştirme | [gun_3b_prompt_cevap.md](gun_3b_prompt_cevap.md) |
 | 4 | Müşteri ve plan yönetimi | [gun_4_prompt_cevap.md](gun_4_prompt_cevap.md) |
 | 5 | Abonelik yaşam döngüsü ve olay kaydı | [gun_5_prompt_cevap.md](gun_5_prompt_cevap.md) |
+| 6 | Kiracı izolasyonu ve rol testleri | [gun_6_prompt_cevap.md](gun_6_prompt_cevap.md) |
+| 7 | Hafta 1 inceleme turu, hata düzeltme ve kod anlama | [gun_7_prompt_cevap.md](gun_7_prompt_cevap.md) |
 
 Sonraki günler çalışma ilerledikçe bu klasöre eklenecektir.
 
