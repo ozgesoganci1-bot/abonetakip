@@ -650,7 +650,5 @@ Senaryo: A aylık 1.000 TL kalıyor; B yıllık 12.000 TL ve C aylık 500 TL bu 
 - pg SSL modu uyarısı Gün 12'de ele alınacak.
 
 ### Süreç notları
-- Yeni sohbet `package.json` için tam dosya önerdi ve içine var olmayan `@tailwindcss/turbopack`
-  bağımlılığını yazmıştı (Tailwind 4 `@tailwindcss/postcss` kullanır). Dosya reddedildi,
-  yalnızca iki betik satırı (`dev:test`, `demo:veri`) ve test listeleri elle eklendi.
+- `package.json` için sohbet tam dosya önerdi. Ana sohbette bağımlılık listesi şüpheli bulundu, kontrolde gerçek dosyayla aynı çıktı. Yine de tam dosya yapıştırmak yerine yalnızca betik satırları (`dev:test`, `demo:veri`) ve test listeleri elle eklendi.
 - Dosyalar terminalden boş oluşturuldu ve kod VS Code'a yapıştırıldı; uzun yapıştırmalar kesilmesin diye.
