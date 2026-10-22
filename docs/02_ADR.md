@@ -464,3 +464,95 @@ Belgelerdeki örnek adresler `ep-xxxx` biçiminde yazılır. Daha geniş bir kal
 - **D4. Ay sınırı UTC mi Türkiye saati mi:** Dashboard gününde karara bağlanacak. Aynı karar dönem gösterimini ve "ay içinde iptal edenler" hesabını birlikte etkiler. Bugünkü durum: dönem hesabı UTC'ye göre. Ayın 29-31'inde Türkiye saatiyle 00:00-03:00 arasında başlayan aboneliklerde gösterilen dönem sonu 1 gün kayabilir.
 - **O3 ve O5:** Şimdilik yapılmayacak. "Gün X" notlarının koddan temizlenmesi ve hata loglarına hata kodu eklenmesi.
 - **Issue #24:** Firma tablosunun okuma işlemleri de aynı davranışı gösteriyor. Başka bir firma kimliği istense de sessizce kullanıcının kendi firmasını döndürüyor. Issue'ya not düşüldü, Ayarlar sayfasıyla birlikte ele alınacak.
+
+## Gün 8 kararları (22 Ekim 2026): metrik hesaplama fonksiyonları
+
+**Durum:** Kod tamamlandı (`src/lib/metrikler.ts`, `src/lib/metrikler.test.ts`).
+**Sonuç:** `npm test` 37 test geçiyor (20 eski, 17 yeni). `npm run build`, `npm run lint`
+temiz. Dashboard ekranı henüz yok, bu gün yalnızca hesap katmanı yazıldı.
+
+### Kararlar
+
+**K8.1: Hesap fonksiyonları saf fonksiyondur ve kiracı bilgisini hiç görmez**
+- **Karar:** Fonksiyonlar veritabanına, oturuma ve `getTenantDb()` fonksiyonuna
+  dokunmaz. Girdi olarak düz veri (fiyat, aralık, durum, başlangıç ve iptal tarihi)
+  alırlar. `metrikler.ts` yalnızca `donem.ts` dosyasından bir tür içe aktarır.
+- **Gerekçe:** Kiracı filtresi tek yerde, verinin okunduğu adımda uygulanır
+  (`getTenantDb()`). Hesap katmanı kiracı bilgisini görmediği için izolasyonu
+  bozamaz ve testleri veritabanı olmadan çalışır.
+- **Dashboard günü için kural:** Abonelikler `getTenantDb()` ile okunacak, düz veriye
+  çevrilip bu fonksiyonlara verilecek.
+
+**K8.2: Test aracı `node --test`, yeni paket eklenmedi**
+- **Gerekçe:** Gün 5 ve Gün 6 kararları geçerli ("ek paket yok", tek çözümleme
+  kancası). Yeni test dosyası yalnızca `package.json` içindeki `test` betiğine eklendi.
+- **Not:** Plan aşamasında yapay zekâ yine Vitest önerdi. Karar bu ADR'den
+  hatırlatılarak düzeltildi (Gün 6'daki durumun tekrarı).
+
+**K8.3: Churn müşteri bazlı hesaplanır**
+- **Karar:** "Ay içinde iptal eden" = ay başında aktif olup ay sonunda hiç ACTIVE
+  aboneliği kalmayan müşteri. Pay ve payda müşteri sayısıdır, abonelik sayısı değil.
+- **Sonuçları:** Ay içinde gelip aynı ay giden müşteri sayılmaz (paydada yok). Aynı ay
+  içinde iptal edip yeni abonelik başlatan müşteri (plan değişikliği) churn sayılmaz,
+  çünkü müşteri kaybedilmemiştir.
+- **Gerekçe:** Proje kuralındaki "ay içinde iptal edenler" ifadesi abonelik bazlı da
+  okunabilirdi. Abonelik bazlı sayımda plan değişikliği churn'ü şişirir ve oran
+  %100'ün üstüne çıkabilir. Bu bir yorum kararıdır, kuralın amacına uygundur.
+- **Dashboard günü için açık nokta:** İçinde bulunulan yarım ay için mi, son tamamlanan
+  ay için mi churn gösterileceği o gün kararlaştırılacak. Fonksiyon herhangi bir aralık
+  alır.
+
+**K8.4: Ay sınırları Türkiye saatine (UTC+3) göre hesaplanır (D4 kapandı)**
+- **Gerekçe:** Veritabanı tarihleri UTC tutar. Türkiye'de yaz saati uygulaması yok,
+  bu yüzden sabit +3 saat yeterli ve basittir. Aksi halde 1 Kasım 01:00 (TR) gibi bir
+  iptal Ekim ayına yazılırdı.
+- **Testler:** Test tarihleri `+03:00` ile yazıldı.
+
+**K8.5: Sıfıra bölme ve belirsiz durumlarda `null` döner, `0` ya da `Infinity` değil**
+- **Gerekçe:** "LTV = 0 TL" yöneticiye "müşteri değersiz" mesajı verir, `Infinity`
+  ekranda anlamsızdır ve JSON'a çevrilemez. `null` "hesaplanamadı" demektir.
+- **İstisna:** Abonelik listesi boşken MRR `0` döner. MRR'nin 0 olması gerçek bir
+  değerdir.
+- **Zincirleme:** Churn hesaplanamazsa ömür, LTV ve LTV/CAC de hesaplanamaz. Özet
+  fonksiyonu her `null` için ekranda gösterilebilecek bir neden metni verir.
+
+**K8.6: Yuvarlama yalnızca özet fonksiyonunda yapılır**
+- **Karar:** İç hesaplarda yuvarlama yok (yıllık 1.000 TL plan aylık 83,333... olarak
+  taşınır). Para değerleri en yakın tam TL'ye, oranlar 2 ondalığa, ömür 1 ondalığa
+  yuvarlanır.
+- **Gerekçe:** Ara adımlarda yuvarlama hatayı biriktirir. Fiyatlar tam sayı TL kuralı
+  (proje kuralları) yıllık planın aylığa bölünmesinde bozulur, bu yüzden toplam
+  üzerinde bir kez yuvarlanır.
+
+### Test kapsamı
+Dersteki örnek iki biçimde sınanır: doğrudan formülle (ARPU 1.000, churn 0,04,
+CAC 5.000 gibi değerlerle ömür 25, LTV 25.000, LTV/CAC 5) ve gerçekçi veriyle
+(50 müşteri, 2 iptal, 2 yeni müşteri, MRR 50.000, churn %4). Ayrıca sıfıra bölme
+durumları, tam sınır tarihleri, aynı müşterinin birden çok kaydı ve ay içinde
+başlayıp biten müşteri sınanır.
+
+### Bilinen sınırlar
+- **Fiyat kopyası yok (D1):** Abonelik kaydı başlangıç fiyatını saklamıyorsa plan
+  fiyatı değiştiğinde geçmiş MRR de değişir. Güncel MRR etkilenmez. Karar (abonelikte
+  fiyat kopyası tutmak) aylık MRR grafiği gününde verilecek. Bu gün şemaya dokunulmadı.
+- **Girdi doğrulaması yok:** Hesap fonksiyonları negatif fiyat gibi bozuk girdiyi
+  kontrol etmez. Girdiler sunucuda doğrulanmış (Gün 4) kayıtlardan gelir.
+- **Yenileme:** Hesap, yenilemenin başlangıç tarihini değiştirmediği varsayımına
+  dayanır (`RENEWED` olayı yalnızca olay tablosuna yazılır).
+
+### Süreç notu (Gün 7)
+Gün 7'de altı commit dal açılıp PR olmadan doğrudan `main`'e itildi (yeni sohbet
+"birleştir ve it" diye yönlendirmişti). Proje kuralı PR zorunluluğudur. İçerik
+taramaları ve geçmiş taraması temiz çıktı. Bundan sonra her değişiklik dal ve PR ile
+girecek.
+
+### Geçmişte kalan eski adres (Gün 2)
+Geçmiş taraması, Gün 2'ye ait iki eski commit'te (`.env.example` içinde gerçek adres)
+eski veritabanı bilgisinin durduğunu gösterdi. Geçmiş yeniden yazılmadı. Gün 6'da
+parola yenilendi, bu yenilemenin eski parolayı geçersiz kıldığı Gün 14'te Neon
+panelinden bir kez daha doğrulanacak.
+
+### Gün 9 ve sonrası için notlar
+- Dashboard ekranı: metrikler `getTenantDb()` ile okunan veriden bu fonksiyonlarla
+  hesaplanacak, `null` değerler neden metniyle gösterilecek.
+- CAC değeri firma ayarlarından gelecek (issue #24 ile birlikte Ayarlar sayfası).
