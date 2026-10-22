@@ -294,3 +294,74 @@ describe("Filtre korumaları", () => {
     assert.equal(bye, null, "A'nın müşterisi B'de görünüyor: kayıt başka firmaya taşındı.");
   });
 });
+
+// Gün 7 (inceleme bulgusu D2): iş kuralına göre müşteri, plan, abonelik ve olay
+// kayıtları silinmez. Filtre bu tablolarda silmeyi veritabanına gitmeden durdurur.
+// Testler A'nın KENDİ kayıtlarıyla yapılır: kendi firmasında bile silme yasaktır.
+// Koşullar dar tutulur (tek kimlik): koruma bozuksa bile zarar test verisiyle sınırlı kalır.
+describe("Silme koruması", () => {
+  test("müşteri, plan, abonelik ve olaylarda deleteMany reddedilir, kayıtlar yerinde kalır", async () => {
+    await assert.rejects(
+      dbA.customer.deleteMany({ where: { id: A.bosMusteriId } }),
+      /"Customer" tablosunda "deleteMany" işlemine izin verilmez: kayıtlar silinmez, pasife alınır/
+    );
+    await assert.rejects(
+      dbA.plan.deleteMany({ where: { id: A.bosPlanId } }),
+      /"Plan" tablosunda "deleteMany" işlemine izin verilmez: kayıtlar silinmez, pasife alınır/
+    );
+    await assert.rejects(
+      dbA.subscription.deleteMany({ where: { id: A.abonelikId } }),
+      /"Subscription" tablosunda "deleteMany" işlemine izin verilmez: abonelikler silinmez, iptal edilir/
+    );
+    await assert.rejects(
+      dbA.subscriptionEvent.deleteMany({ where: { subscriptionId: A.abonelikId } }),
+      /"SubscriptionEvent" tablosunda "deleteMany" işlemine izin verilmez: olay kayıtları silinmez/
+    );
+
+    // Etki kontrolü: kayıtların hepsi hâlâ yerinde.
+    assert.equal(await dbA.customer.count({ where: { id: A.bosMusteriId } }), 1);
+    assert.equal(await dbA.plan.count({ where: { id: A.bosPlanId } }), 1);
+    assert.equal(await dbA.subscription.count({ where: { id: A.abonelikId } }), 1);
+    assert.equal(
+      await dbA.subscriptionEvent.count({ where: { subscriptionId: A.abonelikId } }),
+      1
+    );
+  });
+
+  test("tek kayıt silme (delete) de reddedilir, kayıtlar yerinde kalır", async () => {
+    const olay = await dbA.subscriptionEvent.findFirst({
+      where: { subscriptionId: A.abonelikId },
+      select: { id: true },
+    });
+    assert.ok(olay, "Test verisinde A'nın başlangıç olayı bulunamadı.");
+
+    await assert.rejects(
+      dbA.customer.delete({ where: { id: A.bosMusteriId } }),
+      /kayıtlar silinmez, pasife alınır/
+    );
+    await assert.rejects(
+      dbA.plan.delete({ where: { id: A.bosPlanId } }),
+      /kayıtlar silinmez, pasife alınır/
+    );
+    await assert.rejects(
+      dbA.subscription.delete({ where: { id: A.abonelikId } }),
+      /abonelikler silinmez, iptal edilir/
+    );
+    await assert.rejects(
+      dbA.subscriptionEvent.delete({ where: { id: olay.id } }),
+      /olay kayıtları silinmez/
+    );
+
+    assert.equal(await dbA.customer.count({ where: { id: A.bosMusteriId } }), 1);
+    assert.equal(await dbA.plan.count({ where: { id: A.bosPlanId } }), 1);
+    assert.equal(await dbA.subscription.count({ where: { id: A.abonelikId } }), 1);
+    assert.equal(await dbA.subscriptionEvent.count({ where: { id: olay.id } }), 1);
+  });
+
+  test("kullanıcı (User) tablosunda silme filtre tarafından engellenmez", async () => {
+    // Var olmayan bir kimlikle denenir: hiçbir kullanıcı silinmez, yalnızca
+    // filtrenin bu işlemi durdurmadığı görülür.
+    const sonuc = await dbA.user.deleteMany({ where: { id: "olmayan-kullanici" } });
+    assert.equal(sonuc.count, 0);
+  });
+});
