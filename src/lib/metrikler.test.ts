@@ -22,6 +22,9 @@ import {
   ltvHesapla,
   ltvCacOrani,
   metrikOzeti,
+  turkiyeAyi,
+  ayHareketi,
+  ltvCacSaglikliMi,
 } from "./metrikler.ts";
 
 // ---------- Kısa yardımcılar ----------
@@ -50,6 +53,42 @@ function iptalli(customerId: string, canceledAt: Date, ek: Partial<AbonelikGirdi
 
 const EKIM_2026 = ayAraligi(2026, 10);
 
+// ---------- Ortak senaryolar ----------
+// Aynı liste hem metrikOzeti hem ayHareketi testlerinde kullanılır.
+
+// Ders örneği: Eylül'den beri 50 müşteri. Ekim'de 2'si gider, 2 yeni gelir.
+function dersOrnegiListesi(): AbonelikGirdisi[] {
+  const liste: AbonelikGirdisi[] = [];
+  // Eylül'den beri aktif 48 müşteri (Ekim boyunca kalıyor)
+  for (let i = 1; i <= 48; i++) {
+    liste.push(abonelik({ customerId: `musteri-${i}`, startedAt: tr("2026-09-01T10:00") }));
+  }
+  // Eylül'den beri aktif, Ekim içinde iptal eden 2 müşteri
+  liste.push(iptalli("musteri-49", tr("2026-10-10T14:00"), { startedAt: tr("2026-09-01T10:00") }));
+  liste.push(iptalli("musteri-50", tr("2026-10-20T09:00"), { startedAt: tr("2026-09-01T10:00") }));
+  // Ekim içinde gelen 2 yeni müşteri
+  liste.push(abonelik({ customerId: "musteri-51", startedAt: tr("2026-10-05T11:00") }));
+  liste.push(abonelik({ customerId: "musteri-52", startedAt: tr("2026-10-15T16:00") }));
+  return liste;
+}
+
+// Gün 9 elle test senaryosu: 3 müşteri Eylül'den beri aktif, Ekim'de 2'si iptal ediyor.
+//   A: aylık 1.000 TL, kalıyor
+//   B: yıllık 12.000 TL (aylık 1.000), 10 Ekim'de iptal
+//   C: aylık 500 TL, 20 Ekim'de iptal
+function gun9SenaryoListesi(): AbonelikGirdisi[] {
+  const eylulBasi = tr("2026-09-01T10:00");
+  return [
+    abonelik({ customerId: "a", fiyat: 1000, startedAt: eylulBasi }),
+    iptalli("b", tr("2026-10-10T10:00"), {
+      fiyat: 12000,
+      aralik: "YEARLY",
+      startedAt: eylulBasi,
+    }),
+    iptalli("c", tr("2026-10-20T10:00"), { fiyat: 500, startedAt: eylulBasi }),
+  ];
+}
+
 // =====================================================================
 // DERSTEKİ DOĞRULAMA ÖRNEĞİ
 // 50 müşteri, her biri aylık 1.000 TL, aylık churn %4, CAC 5.000 TL.
@@ -77,20 +116,7 @@ test("ders örneği (formüllerle): ömür 25, LTV 25.000, LTV/CAC 5", () => {
 });
 
 test("ders örneği (gerçekçi veriyle): Ekim'de 50 müşteriden 2'si gider, 2 yeni gelir", () => {
-  const liste: AbonelikGirdisi[] = [];
-
-  // Eylül'den beri aktif 48 müşteri (Ekim boyunca kalıyor)
-  for (let i = 1; i <= 48; i++) {
-    liste.push(abonelik({ customerId: `musteri-${i}`, startedAt: tr("2026-09-01T10:00") }));
-  }
-  // Eylül'den beri aktif, Ekim içinde iptal eden 2 müşteri
-  liste.push(iptalli("musteri-49", tr("2026-10-10T14:00"), { startedAt: tr("2026-09-01T10:00") }));
-  liste.push(iptalli("musteri-50", tr("2026-10-20T09:00"), { startedAt: tr("2026-09-01T10:00") }));
-  // Ekim içinde gelen 2 yeni müşteri
-  liste.push(abonelik({ customerId: "musteri-51", startedAt: tr("2026-10-05T11:00") }));
-  liste.push(abonelik({ customerId: "musteri-52", startedAt: tr("2026-10-15T16:00") }));
-
-  const ozet = metrikOzeti(liste, EKIM_2026, 5000);
+  const ozet = metrikOzeti(dersOrnegiListesi(), EKIM_2026, 5000);
 
   assert.equal(ozet.mrr, 50000);
   assert.equal(ozet.aktifMusteri, 50);
@@ -99,6 +125,26 @@ test("ders örneği (gerçekçi veriyle): Ekim'de 50 müşteriden 2'si gider, 2 
   assert.equal(ozet.ortalamaOmurAy, 25);
   assert.equal(ozet.ltv, 25000);
   assert.equal(ozet.ltvCac, 5);
+  assert.deepEqual(ozet.nedenler, {});
+});
+
+// =====================================================================
+// GÜN 9 ELLE TEST SENARYOSU
+// Dashboard'da elle karşılaştırılacak değerlerin kaynağı bu testtir.
+// Beklenen: MRR 1.000, churn 0,6667 (ekranda %66,7), ARPU 1.000,
+//           ömür 1,5 ay, LTV 1.500, LTV/CAC 0,3 ("Dikkat").
+// =====================================================================
+
+test("Gün 9 elle test senaryosu: 3 müşteri, 2 iptal, CAC 5.000", () => {
+  const ozet = metrikOzeti(gun9SenaryoListesi(), EKIM_2026, 5000);
+
+  assert.equal(ozet.mrr, 1000); // yalnızca A
+  assert.equal(ozet.aktifMusteri, 1);
+  assert.equal(ozet.churn, 0.6667); // 2 / 3, 4 ondalık
+  assert.equal(ozet.arpu, 1000); // 1.000 / 1
+  assert.equal(ozet.ortalamaOmurAy, 1.5); // 1 / (2/3), ham churn'den
+  assert.equal(ozet.ltv, 1500); // 1.000 x 1,5
+  assert.equal(ozet.ltvCac, 0.3); // 1.500 / 5.000, 3'ün altı: "Dikkat"
   assert.deepEqual(ozet.nedenler, {});
 });
 
@@ -186,6 +232,23 @@ test("ara adımda yuvarlama yok: üç yıllık 1.000 TL plan toplamı 250 (83+83
     abonelik({ customerId: id, fiyat: 1000, aralik: "YEARLY" })
   );
   assert.equal(metrikOzeti(liste, EKIM_2026, null).mrr, 250);
+});
+
+test("churn 4 ondalığa yuvarlanır: 1/3 -> 0,3333 (ham değer yuvarlanmaz)", () => {
+  // 3 müşteri ay başında aktif, 1'i Ekim'de iptal ediyor.
+  const liste = [
+    abonelik({ customerId: "a" }),
+    abonelik({ customerId: "b" }),
+    iptalli("c", tr("2026-10-15T10:00")),
+  ];
+  // Ham değer: yuvarlama yok
+  const ham = aylikChurn(liste, EKIM_2026);
+  assert.ok(ham !== null && Math.abs(ham - 1 / 3) < 1e-12);
+  // Özette: 4 ondalık
+  const ozet = metrikOzeti(liste, EKIM_2026, null);
+  assert.equal(ozet.churn, 0.3333);
+  // Ömür ham churn'den hesaplanır: 1 / (1/3) = 3 (1 / 0,3333 = 3,0003 değil)
+  assert.equal(ozet.ortalamaOmurAy, 3);
 });
 
 // =====================================================================
@@ -286,4 +349,69 @@ test("mrrGecmisi: her ayın son anındaki MRR, içinde bulunulan ay için 'şimd
     { yil: 2026, ay: 10, mrr: 1000 }, // 22 Ekim'e kadar: c henüz yok
   ]);
   assert.equal(tarihtekiMrr(liste, tr("2026-10-31T23:00")), 2000);
+});
+
+// =====================================================================
+// AY HAREKETİ: YENİ VE İPTAL SAYISI (Gün 9)
+// Churn ile aynı müşteri bazlı mantık. "iptal" her zaman churn'ün payına eşittir.
+// =====================================================================
+
+test("ayHareketi: Gün 9 senaryosu -> yeni 0, iptal 2; iptal / ay başı = churn", () => {
+  const liste = gun9SenaryoListesi();
+  assert.deepEqual(ayHareketi(liste, EKIM_2026), { yeni: 0, iptal: 2 });
+  // Ay başında 3 müşteri vardı: 2 / 3 = ham churn
+  assert.equal(2 / 3, aylikChurn(liste, EKIM_2026));
+});
+
+test("ayHareketi: ders örneği -> yeni 2, iptal 2; iptal / ay başı = churn", () => {
+  const liste = dersOrnegiListesi();
+  assert.deepEqual(ayHareketi(liste, EKIM_2026), { yeni: 2, iptal: 2 });
+  // Ay başında 50 müşteri vardı: 2 / 50 = 0,04
+  assert.equal(2 / 50, aylikChurn(liste, EKIM_2026));
+});
+
+test("ayHareketi: plan değiştiren müşteri ne yeni ne iptal sayılır", () => {
+  const liste = [
+    abonelik({ customerId: "b" }),
+    iptalli("a", tr("2026-10-10T10:00")),
+    abonelik({ customerId: "a", fiyat: 2000, startedAt: tr("2026-10-10T10:00") }),
+  ];
+  assert.deepEqual(ayHareketi(liste, EKIM_2026), { yeni: 0, iptal: 0 });
+});
+
+test("ayHareketi: ay içinde gelip aynı ay giden müşteri ne yeni ne iptal sayılır", () => {
+  const liste = [
+    abonelik({ customerId: "a" }),
+    iptalli("gecici", tr("2026-10-20T10:00"), { startedAt: tr("2026-10-05T10:00") }),
+  ];
+  assert.deepEqual(ayHareketi(liste, EKIM_2026), { yeni: 0, iptal: 0 });
+});
+
+test("ayHareketi: boş liste -> yeni 0, iptal 0", () => {
+  assert.deepEqual(ayHareketi([], EKIM_2026), { yeni: 0, iptal: 0 });
+});
+
+// =====================================================================
+// TÜRKİYE AYI VE SAĞLIKLILIK EŞİĞİ (Gün 9)
+// =====================================================================
+
+test("turkiyeAyi: ay, UTC'ye değil Türkiye saatine göre belirlenir", () => {
+  // 31 Ekim 20:59 UTC = 31 Ekim 23:59 TR -> Ekim
+  assert.deepEqual(turkiyeAyi(new Date("2026-10-31T20:59:00Z")), { yil: 2026, ay: 10 });
+  // 31 Ekim 21:00 UTC = 1 Kasım 00:00 TR -> Kasım (UTC'de hâlâ Ekim)
+  assert.deepEqual(turkiyeAyi(new Date("2026-10-31T21:00:00Z")), { yil: 2026, ay: 11 });
+  // 31 Aralık 21:00 UTC = 1 Ocak 2027 00:00 TR -> yıl da değişir
+  assert.deepEqual(turkiyeAyi(new Date("2026-12-31T21:00:00Z")), { yil: 2027, ay: 1 });
+  // ayAraligi ile birlikte: bulunan ayın aralığı o anı içerir
+  const an = new Date("2026-10-31T22:30:00Z"); // 1 Kasım 01:30 TR
+  const { yil, ay } = turkiyeAyi(an);
+  const aralik = ayAraligi(yil, ay);
+  assert.ok(aralik.baslangic.getTime() <= an.getTime() && an.getTime() < aralik.bitis.getTime());
+});
+
+test("ltvCacSaglikliMi: 3 ve üzeri sağlıklı, altı değil", () => {
+  assert.equal(ltvCacSaglikliMi(3), true);
+  assert.equal(ltvCacSaglikliMi(5), true);
+  assert.equal(ltvCacSaglikliMi(2.99), false);
+  assert.equal(ltvCacSaglikliMi(0.3), false);
 });

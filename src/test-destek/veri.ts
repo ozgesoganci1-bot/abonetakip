@@ -1,7 +1,8 @@
-// TEST VERİSİ YARDIMCISI (yalnızca testlerde kullanılır)
+// TEST VERİSİ YARDIMCISI (yalnızca testlerde ve test dalı betiklerinde kullanılır)
 //
 // Her test dosyası çalışınca iki sahte firma (A ve B) oluşturur ve testler
 // bitince yalnızca BU ÇALIŞMADA oluşturduğu kayıtları siler.
+// Gün 9: demo-verisi.ts betiği de firma kimliği bulmak için bu dosyayı kullanır.
 //
 // İSTİSNA (Gün 6 onayı): Bu dosya ham "prisma" nesnesini kullanır. Firma (Tenant)
 // oluşturma ve silme işlemleri tenant filtresinden geçemez, çünkü filtre bunları
@@ -159,4 +160,19 @@ export async function testVerisiniTemizle(): Promise<void> {
 // Veritabanı bağlantısını kapatır. Kapatılmazsa Node test bitince beklemede kalır.
 export async function baglantiyiKapat(): Promise<void> {
   await prisma.$disconnect();
+}
+
+// ---------- Demo betiği yardımcısı (Gün 9) ----------
+
+// Test dalında, verilen e-postayla kayıtlı kullanıcının firma kimliğini bulur.
+// Kullanıcı e-postası bütün firmalarda benzersizdir ve firma henüz bilinmediği için
+// tenant filtresi kullanılamaz; bu yüzden ham prisma ile bu dosyada durur.
+// Yalnızca firma kimliği okunur; parola özeti ve diğer alanlar okunmaz.
+// Kullanan: src/test-destek/demo-verisi.ts
+export async function kullanicininFirmaKimligi(eposta: string): Promise<string | null> {
+  const kullanici = await prisma.user.findUnique({
+    where: { email: eposta },
+    select: { tenantId: true },
+  });
+  return kullanici?.tenantId ?? null;
 }

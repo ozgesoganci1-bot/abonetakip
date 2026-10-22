@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 
-// Küçük durum etiketi: "Yönetici", "Finans", "Aktif" gibi
-type Ton = "gri" | "indigo" | "yesil" | "kirmizi";
+// Küçük durum etiketi: "Yönetici", "Finans", "Aktif", "Dikkat" gibi.
+// Not: Anlam yalnızca renge bırakılmaz; etiketin metni (ve gerekirse simgesi) her zaman yazılır.
+type Ton = "gri" | "indigo" | "yesil" | "kirmizi" | "sari";
 
 type RozetProps = {
   ton?: Ton;
@@ -13,6 +14,7 @@ const tonlar: Record<Ton, string> = {
   indigo: "bg-indigo-50 text-indigo-700",
   yesil: "bg-emerald-50 text-emerald-700",
   kirmizi: "bg-red-50 text-red-700",
+  sari: "bg-amber-50 text-amber-800",
 };
 
 export default function Rozet({ ton = "gri", children }: RozetProps) {
