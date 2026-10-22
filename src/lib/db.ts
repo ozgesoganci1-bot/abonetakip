@@ -1,9 +1,15 @@
 // Uygulamanın tek veritabanı bağlantısı (Prisma 7 + PostgreSQL sürücü adaptörü).
 //
-// ÖNEMLİ KURAL: Bu dosyadaki ham "prisma" nesnesi yalnızca şu üç dosyada
-// içe aktarılabilir: src/lib/db.ts, src/lib/auth.ts, src/lib/tenant.ts.
+// ÖNEMLİ KURAL: Bu dosyadaki ham "prisma" nesnesi yalnızca şu dosyalarda
+// içe aktarılabilir:
+//   - src/lib/auth.ts   (kayıt ve giriş: kiracı henüz belli değildir)
+//   - src/lib/tenant.ts (merkezi kiracı filtresi bu nesnenin üstüne kurulur)
+//   - src/test-destek/veri.ts (İSTİSNA, yalnızca testler için: sahte firmaları
+//     oluşturup siler; tenant filtresi bu işlemleri bilerek engellediği için
+//     ham nesne gerekir. Gün 6 kararıyla ADR'de yazılıdır.)
 // Diğer bütün veri sorguları src/lib/tenant.ts içindeki getTenantDb()
 // üzerinden yapılır. Böylece tenantId filtresi hiçbir sorguda unutulmaz.
+// Bu kural src/test-destek/kurallar.test.ts tarafından otomatik denetlenir.
 
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../../generated/prisma/client";

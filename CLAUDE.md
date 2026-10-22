@@ -63,7 +63,9 @@
 - Oturum çerezi httpOnly olmalıdır.
 - Tüm kullanıcı girdileri sunucuda doğrulanır.
 - Test ve demo verisi sahte ama gerçekçi olur.
-- `.env.example` yalnızca yer tutucu içerir (`[NEON_POOLED_URL]`). Gerçek adres veya parola asla yazılmaz. Commit öncesi `git grep -n -e "neon.tech" -e "npg_"` ile kontrol et.
+- `.env.example` yalnızca yer tutucu içerir (`[NEON_POOLED_URL]`). Gerçek adres veya parola asla yazılmaz.
+- Commit öncesi iki tarama yapılır, ikisi de içerik basmaz: `git --no-pager grep -c -E "npg_[A-Za-z0-9]{6,}"` (parola; çıktı boş olmalı) ve `git --no-pager grep -o -E "ep-[a-z0-9-]+\.[a-z0-9.-]*neon\.tech" | grep -vc "ep-xxxx"` (sunucu adı; sonuç 0 olmalı). Belgelerdeki örnek adresler `ep-xxxx` biçiminde yazılır.
+- Prompt günlüğüne (`prompt_cevap/`) yapıştırılan her içerik, yapıştırmadan önce maskelenir: `[DATABASE_URL]`, `[NEON_HOST]`, `[NEON_PAROLA]`.
 - Terminal komutları `.env` içeriğini (parola dahil) ekrana basmamalı.
 - Prisma geçişlerinde `migrate dev` her zaman `--create-only` ile çalıştırılır. `migration.sql` içinde `subscriptions_one_active_per_customer` dizinini silen bir `DROP INDEX` satırı varsa o satır silinir (bu dizin elle eklenmiştir, şemada yoktur).
 

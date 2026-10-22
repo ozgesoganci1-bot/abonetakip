@@ -1,4 +1,6 @@
-// Kayıt ve giriş formlarının sunucu tarafı doğrulaması.
+// Formların sunucu tarafı doğrulaması: kayıt ve giriş, müşteri, plan ve
+// abonelik başlatma formları. Tarayıcıdaki kontrollere güvenilmez; her form
+// sunucuda bu dosyadaki fonksiyonlarla yeniden kontrol edilir.
 // Bu dosyadaki fonksiyonlar "saf"tır: veritabanına veya çereze dokunmazlar,
 // aynı girdiye her zaman aynı sonucu verirler. Bu yüzden kolay test edilirler.
 

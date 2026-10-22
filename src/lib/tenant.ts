@@ -18,6 +18,13 @@
 // Sütun listeleri Prisma'nın şemadan ürettiği koddan okunur; şemaya yeni sütun
 // eklenince ayrıca güncellemek gerekmez.
 //
+// SİLME KORUMASI (Gün 7): İş kuralına göre müşteri ve plan silinmez, pasife alınır;
+// abonelik silinmez, iptal edilir; olay kayıtları hiç silinmez. Bu tablolarda
+// "delete" ve "deleteMany" veritabanına gitmeden durdurulur. Kullanıcı (User)
+// tablosunda silme serbesttir. Firma (Tenant) tablosu ayrıca aşağıda korunur.
+// Test verisinin temizliği (src/test-destek/veri.ts) ham "prisma" ile yapıldığı
+// için bu korumadan etkilenmez.
+//
 // YASAK: prisma.$queryRaw / $executeRaw. Ham SQL bu filtreden geçmez.
 
 import { prisma } from "./db";
@@ -50,6 +57,18 @@ const GUNCELLEME_SILME = new Set([
   "updateManyAndReturn",
   "delete",
   "deleteMany",
+]);
+
+// Silme işlemleri (silme korumasında kullanılır).
+const SILME = new Set(["delete", "deleteMany"]);
+
+// Kayıtları silinemeyen tablolar ve hata mesajında gösterilecek neden.
+// Bu listede olmayan tablolarda (User) silme serbesttir.
+const SILINEMEZ = new Map<string, string>([
+  ["Customer", "kayıtlar silinmez, pasife alınır"],
+  ["Plan", "kayıtlar silinmez, pasife alınır"],
+  ["Subscription", "abonelikler silinmez, iptal edilir"],
+  ["SubscriptionEvent", "olay kayıtları silinmez"],
 ]);
 
 // Çoklu kayıt ekleme işlemleri.
@@ -131,6 +150,14 @@ export function tenantaBagliDb(tenantId: string) {
               return query(a as typeof args);
             }
             throw new Error(`Firma tablosunda "${operation}" işlemine izin verilmez.`);
+          }
+
+          // Silme koruması: listedeki tablolarda silme veritabanına hiç gitmez.
+          const silmeNedeni = SILINEMEZ.get(model);
+          if (silmeNedeni && SILME.has(operation)) {
+            throw new Error(
+              `"${model}" tablosunda "${operation}" işlemine izin verilmez: ${silmeNedeni}.`
+            );
           }
 
           // Diğer bütün tablolar: tenantId filtresi zorunlu.
