@@ -18,6 +18,7 @@ import {
 } from "./session";
 import { epostaDogrula, type KayitGirdisi } from "./validation";
 import { yoneticiMi } from "./yetki";
+import { tekrarEdenKayitMi } from "./islem";
 
 // bcrypt maliyeti: sayı büyüdükçe özetleme yavaşlar ve kırılması zorlaşır.
 const BCRYPT_TUR = 12;
@@ -88,16 +89,6 @@ export async function requireManager(): Promise<AktifKullanici | null> {
   return yoneticiMi(kullanici.role) ? kullanici : null;
 }
 
-// Prisma'nın "tekrar eden kayıt" hatasını (P2002) tanır.
-function tekrarEdenKayitMi(hata: unknown): boolean {
-  return (
-    typeof hata === "object" &&
-    hata !== null &&
-    "code" in hata &&
-    (hata as { code: unknown }).code === "P2002"
-  );
-}
-
 // Kayıt: yeni firma ve o firmanın ilk kullanıcısı (manager) birlikte oluşturulur.
 export async function kayitOl(girdi: KayitGirdisi): Promise<IslemSonucu> {
   // Bu e-posta daha önce kullanılmış mı?
@@ -138,7 +129,8 @@ export async function kayitOl(girdi: KayitGirdisi): Promise<IslemSonucu> {
     await oturumCerezineYaz(kullaniciId);
     return { ok: true };
   } catch (hata) {
-    // İki kişi aynı anda aynı e-postayla kayıt olursa veritabanı engeller.
+    // İki kişi aynı anda aynı e-postayla kayıt olursa veritabanı engeller
+    // (tekrarEdenKayitMi: src/lib/islem.ts).
     if (tekrarEdenKayitMi(hata)) {
       return { ok: false, hata: "Bu e-posta adresiyle zaten bir hesap var." };
     }

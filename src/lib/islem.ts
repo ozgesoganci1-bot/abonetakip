@@ -29,7 +29,7 @@ export function formMetni(formData: FormData, alan: string): string {
 }
 
 // Prisma'nın "tekrar eden kayıt" hatasını (P2002) tanır.
-// (auth.ts içinde de aynı mantık var; o dosyaya dokunmamak için burada da tanımlı.)
+// Uygulamadaki TEK tanımdır: kayıt (auth.ts) ve bütün sunucu işlemleri bunu kullanır.
 export function tekrarEdenKayitMi(hata: unknown): boolean {
   return (
     typeof hata === "object" &&
