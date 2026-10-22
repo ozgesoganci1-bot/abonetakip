@@ -30,18 +30,17 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
-
 # vercel
 .vercel
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
 # Prisma ve ortam dosyaları
+# .env ile başlayan bütün dosyalar repoya girmez (gerçek adres ve parola içerir).
 .env*
+# İstisna: örnek dosyalar repoya girer, yalnızca yer tutucu içerirler.
 !.env.example
-/generated/prisma
-# Örnek env dosyaları repoya girer: yalnızca yer tutucu içerirler.
 !.env.test.example
+/generated/prisma
