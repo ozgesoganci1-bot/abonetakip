@@ -370,3 +370,97 @@
 - Dashboard metrik izolasyonu
 - SSE uyarısının yalnızca ilgili firmaya gitmesi
 - Aylık MRR grafiği
+
+## Gün 7 kararları (22 Ekim 2026): Hafta 1 inceleme turu
+
+### Durum
+
+Hafta 1 kodu, yapay zekâ ile bir inceleme turundan geçirildi. İncelenen alanlar: kimlik doğrulama ve oturum, merkezi tenant filtresi, müşteri, plan ve abonelik işlemleri, şema, `.gitignore` ve `.env.example`. Gün 6'da kapatılan açık (`tenant: { connect }` ile kaydın başka firmaya taşınması) ve issue #24 yeniden bulgu sayılmadı.
+
+İncelemede yalnızca gösterilen dosyalar değerlendirildi. Gösterilmeyen dosyalar için bulgu yazılmadı: liste sayfaları, dashboard, form bileşenleri, `prisma.config.ts`.
+
+### Sonuç
+
+**Yüksek öncelikli bulgu çıkmadı.** Toplam 13 bulgu var: 2 orta, 11 düşük. Kiracı filtresi, sunucu tarafı rol kontrolü, girdi doğrulama ve çift tıklama koruması incelenen bütün işlemlerde doğru kurulmuş.
+
+| No | Sınıf | Bulgu | Öncelik | Karar |
+|---|---|---|---|---|
+| G1 | Güvenlik | Girişte deneme sınırı yok | Orta | Ertelendi: Gün 12 (güvenlik günü) |
+| G2 | Güvenlik | Oturum sunucu tarafında iptal edilemiyor | Düşük | Bilinen sınır |
+| G3 | Güvenlik | Ham SQL ve ham `prisma` yasağı yalnızca yorumda | Düşük | Kapandı: `kurallar.test.ts` zaten denetliyor (Gün 6) |
+| G4 | Güvenlik | Kayıt formu e-postanın kayıtlı olduğunu söylüyor | Düşük | Bilinen sınır |
+| D1 | Doğruluk | Abonelik başlarken fiyat saklanmıyor | Orta | Ertelendi: MRR grafiğinden önce karara bağlanacak |
+| D2 | Doğruluk | Merkezi filtre müşteri, plan ve abonelik silmeye izin veriyordu | Düşük | Yapıldı (K7.1) |
+| D3 | Doğruluk | Plan fiyat kilidi "önce kontrol et, sonra güncelle" biçiminde | Düşük | Bilinen sınır |
+| D4 | Doğruluk | Dönem hesabı UTC'ye, gösterim Türkiye saatine göre | Düşük | Ertelendi: dashboard gününde karara bağlanacak |
+| O1 | Okunabilirlik | `tekrarEdenKayitMi` iki yerde ayrı ayrı yazılmış | Düşük | Yapıldı (K7.2) |
+| O2 | Okunabilirlik | Eskimiş açıklama yorumları | Düşük | Yapıldı (K7.3) |
+| O3 | Okunabilirlik | Kodda "Gün X" geçmiş notları | Düşük | Şimdilik yapılmayacak |
+| O4 | Okunabilirlik | `.gitignore` tekrarı ve yanıltıcı yorum | Düşük | Yapıldı (K7.4) |
+| O5 | Okunabilirlik | Hata loglarında hiçbir ayrıntı yok | Düşük | Şimdilik yapılmayacak |
+
+Ayrıca doğrulananlar:
+- Tenant filtresi `$transaction` içinde de çalışıyor. Bunu `tenant.test.ts` dosyasındaki iptal ve yenileme testi gösteriyor (Gün 6).
+- `subscriptions_one_active_per_customer` dizini init geçişinde (`20261019164502_init`) `CREATE UNIQUE INDEX` ile oluşturuluyor. Sonraki geçişlerde bu dizini silen bir `DROP INDEX` yok.
+
+Bu inceleme sırasında bir de güvenlik olayı bulundu (aşağıda ayrıca anlatılıyor).
+
+Testler: `npm test` 20/20, `npm run test:db` 36/36 (yeni silme koruması testleri dahil), `npx tsc --noEmit` temiz.
+
+Commit'ler (`gun7-inceleme-duzeltmeleri` dalı):
+- `5516060` fix(tenant): müşteri, plan ve abonelik tablolarında silmeyi engelle
+- `5164021` fix(guvenlik): prompt günlüğündeki gerçek Neon adresini maskele
+- `c959d4f` refactor: tekrarEdenKayitMi tek yerde
+- `d93f006` docs: eskimiş yorumları güncelle
+- `69e11e3` chore: .gitignore tekrarını temizle
+- `62b97a8` docs: commit öncesi gizli bilgi taramasını güncelle
+
+### Kararlar
+
+**K7.1 Silme koruması merkezi filtrede (D2).** `src/lib/tenant.ts`, `Customer`, `Plan`, `Subscription` ve `SubscriptionEvent` tablolarında `delete` ve `deleteMany` işlemlerini veritabanına gitmeden reddeder. Hata mesajı tabloya göre değişir:
+- Müşteri ve plan: "kayıtlar silinmez, pasife alınır".
+- Abonelik: "abonelikler silinmez, iptal edilir".
+- Olay kayıtları: "olay kayıtları silinmez".
+
+`User` tablosunda silme serbest bırakıldı, çünkü kullanıcı yönetimi henüz tasarlanmadı. `Tenant` tablosu zaten korunuyordu. Test verisi temizliği (`src/test-destek/veri.ts`) ham `prisma` ile yapıldığı için bu korumadan etkilenmez. `tenant.test.ts` dosyasına 3 test eklendi: dört tabloda `deleteMany` reddi, `delete` reddi (iki testte de kayıtların yerinde kaldığı kontrol ediliyor) ve `User` tablosunda silmenin engellenmediği.
+
+**K7.2 `tekrarEdenKayitMi` tek tanım (O1).** Fonksiyon yalnızca `src/lib/islem.ts` içinde tanımlı. `src/lib/auth.ts` onu buradan içe aktarır. Davranış değişmedi.
+
+**K7.3 Yorumlar güncellendi (O2).** `src/lib/db.ts` yorumu, ham `prisma` kullanabilen dosyaları nedenleriyle birlikte listeliyor. `src/test-destek/veri.ts` istisnası (Gün 6) eklendi ve kuralın `kurallar.test.ts` tarafından denetlendiği belirtildi. `src/lib/validation.ts` yorumu, dosyanın kapsadığı bütün formları sayıyor. Yalnızca yorumlar değişti.
+
+**K7.4 `.gitignore` sadeleştirildi (O4).** Şablondan kalan yanıltıcı yorum ("can opt-in for committing") ve tekrar eden `.env*` satırı silindi. Ortam dosyası kuralları tek blokta toplandı: önce `.env*`, sonra `!.env.example` ve `!.env.test.example` istisnaları. `git check-ignore` ve `git ls-files` ile doğrulandı: repoda yalnızca iki örnek dosya kayıtlı.
+
+**K7.5 Commit öncesi gizli bilgi taraması değişti.** Gün 6'daki daraltılmış tarama (yalnızca `npg_…` araması) Neon sunucu adlarını ve eski biçimli parolaları yakalamıyordu. Aşağıdaki güvenlik olayındaki satırı da yakalamadı. Yeni kural iki taramadan oluşuyor ve ikisi de satır içeriğini ekrana basmıyor:
+- Parola: `git --no-pager grep -c -E "npg_[A-Za-z0-9]{6,}"`. Çıktı boş olmalı.
+- Sunucu adı: `git --no-pager grep -o -E "ep-[a-z0-9-]+\.[a-z0-9.-]*neon\.tech" | grep -vc "ep-xxxx"`. Sonuç 0 olmalı.
+
+Belgelerdeki örnek adresler `ep-xxxx` biçiminde yazılır. Daha geniş bir kalıp (`ep-[a-z0-9-]+`) denendi ama `package-lock.json` içindeki paket adlarında (`deep-equal`, `deep-is`) yanlış alarm verdi. Bu yüzden sunucu adı ile `neon.tech` aynı eşleşmede aranıyor. Kural `CLAUDE.md` dosyasına ve Claude Project talimatlarına işlendi.
+
+**K7.6 Prompt günlüğü maskeleme kuralı.** `prompt_cevap/` klasörüne yapıştırılan her içerik, yapıştırmadan önce maskelenir: `[DATABASE_URL]`, `[NEON_HOST]`, `[NEON_PAROLA]`. Kural `CLAUDE.md` dosyasına işlendi.
+
+### Güvenlik olayı ve ders
+
+- **Ne oldu:** `prompt_cevap/gun_0_prompt_cevap.md` dosyasında maskelenmemiş bir `DATABASE_URL` satırı bulundu. Satırda gerçek bir Neon sunucu adı vardı ve bu satır herkese açık depoya gönderilmişti. Satır, bu inceleme turundaki genel tarama sırasında fark edildi. İçeriği hiçbir sohbete ya da dosyaya kopyalanmadı, yalnızca sayı veren komutlarla incelendi.
+- **Yapılanlar:**
+  1. Neon parolası değiştirildi. Yeni adres yalnızca yerel `.env` dosyasına ve Render'daki ortam değişkenlerine yazıldı.
+  2. Satır `[DATABASE_URL]` ile maskelendi (`5164021`).
+  3. Depo genelinde tarama tekrarlandı: başka gerçek adres yok. `gun_2_prompt_cevap.md` dosyasındaki eşleşmelerin hepsi `ep-xxxx` biçiminde uydurma örnekler.
+  4. Parola değişikliğinden sonra `npm run test:db` çalıştırıldı ve canlı sitede giriş denendi, ikisi de çalışıyor.
+- **Bilinen sınır:** Eski adres git geçmişindeki commit'lerde kalmaya devam ediyor. Parola değiştirildiği için bu adres artık bağlantı için kullanılamaz. Geçmişi yeniden yazmak için ek araç gerekir, bu da şu an gerekli görülmedi.
+- **Ders:** Gün 2'deki olaydan sonra yalnızca `.env.example` dosyası kontrol altına alınmıştı. Prompt günlükleri de aynı risk taşıyor. Tarama, depodaki her dosyayı kapsamalı ve hem parolayı hem sunucu adını aramalı (K7.5, K7.6).
+
+### Bilinen sınırlar
+
+- **G2. Oturum sunucu tarafında iptal edilemiyor.** Çerez imzalı ve 7 gün geçerli. Çıkış yalnızca tarayıcıdaki çerezi siliyor. Kopyalanmış bir çerez süresi dolana kadar çalışır. İleride parola değiştirme eklenirse eski oturumlar yine düşmez. Kod çözümü (kullanıcıya oturum sürüm numarası) şema değişikliği gerektirdiği için şimdilik yapılmadı.
+- **G4. Kayıt formu e-postanın kayıtlı olduğunu söylüyor.** Giriş formu e-postanın kayıtlı olup olmadığını gizliyor (tek tip hata ve süre eşitleme). Kayıt formu ise "Bu e-posta adresiyle zaten bir hesap var" diyor. Düzgün çözüm e-posta doğrulaması gerektirir ve e-posta kapsam dışında (WON'T). Bilinçli olarak kabul edildi.
+- **D3. Plan fiyat güncellemesi penceresi.** `planGuncelle` önce aktif abonelik sayıyor, ardından ayrı bir adımda güncelliyor. Fiyat değişikliğiyle aynı anda o plana abonelik başlatılırsa, abonelik eski fiyatı görerek başlayabilir. Tam çözüm satır kilidi (`SELECT ... FOR UPDATE`) gerektirir, bu da ham SQL demek ve ham SQL projede yasak. Pasife alma için daha önce kabul edilen pencerenin aynısı.
+
+### İleride değerlendirilecekler
+
+- **G1. Giriş deneme sınırı:** Gün 12 (güvenlik günü). Tek Render sunucusunda bellek içi sayaç, yeni paket olmadan.
+- **D1. Abonelikte fiyat saklamak:** MRR grafiğinden önce karara bağlanacak. İki seçenek var:
+  - abonelik başlarken aylık fiyatı saklayan bir sütun eklemek (şema değişikliği),
+  - "geçmiş MRR planın bugünkü fiyatıyla hesaplanır" sınırını kabul etmek.
+- **D4. Ay sınırı UTC mi Türkiye saati mi:** Dashboard gününde karara bağlanacak. Aynı karar dönem gösterimini ve "ay içinde iptal edenler" hesabını birlikte etkiler. Bugünkü durum: dönem hesabı UTC'ye göre. Ayın 29-31'inde Türkiye saatiyle 00:00-03:00 arasında başlayan aboneliklerde gösterilen dönem sonu 1 gün kayabilir.
+- **O3 ve O5:** Şimdilik yapılmayacak. "Gün X" notlarının koddan temizlenmesi ve hata loglarına hata kodu eklenmesi.
+- **Issue #24:** Firma tablosunun okuma işlemleri de aynı davranışı gösteriyor. Başka bir firma kimliği istense de sessizce kullanıcının kendi firmasını döndürüyor. Issue'ya not düşüldü, Ayarlar sayfasıyla birlikte ele alınacak.
