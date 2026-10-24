@@ -2,6 +2,9 @@ import type { FormDurumu } from "@/lib/islem";
 
 // Bir form işleminin sonucunu gösterir: başarılıysa yeşil, hatalıysa kırmızı kutu.
 // Henüz işlem yapılmadıysa hiçbir şey göstermez.
+// Gün 11 (Parça B): anlam yalnızca renge bırakılmaz. Başarıda "✓", hatada "!" simgesi
+// gösterilir (dashboard rozetleriyle aynı). Simge ekran okuyucudan gizlenir; anlamı
+// mesaj metni ve role (status / alert) taşır.
 export default function IslemMesaji({ durum }: { durum: FormDurumu }) {
   if (durum.durum === "bos" || !durum.mesaj) return null;
 
@@ -13,9 +16,12 @@ export default function IslemMesaji({ durum }: { durum: FormDurumu }) {
   return (
     <p
       role={basarili ? "status" : "alert"}
-      className={`rounded-lg border px-3 py-2 text-sm ${renk}`}
+      className={`flex items-start gap-2 rounded-lg border px-3 py-2 text-sm ${renk}`}
     >
-      {durum.mesaj}
+      <span aria-hidden="true" className="font-semibold">
+        {basarili ? "✓" : "!"}
+      </span>
+      <span>{durum.mesaj}</span>
     </p>
   );
 }
