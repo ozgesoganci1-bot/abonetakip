@@ -43,3 +43,18 @@ const AY_BICIMI = new Intl.DateTimeFormat("tr-TR", {
 export function ayEtiketi(yil: number, ay: number): string {
   return AY_BICIMI.format(new Date(Date.UTC(yil, ay - 1, 15)));
 }
+
+// Kısa ay etiketi (Gün 11, MRR grafiğinin alt ekseni): (2026, 10) -> "Eki 26"
+// Ay adı Intl ile kısaltılır; yıl son iki hane olarak elle eklenir. Yıl biçimi
+// Intl'e bırakılmadı, çünkü kısa yıl gösterimi tarayıcıya ve sürüme göre değişebilir.
+// Ekranda tam ad gereken yerlerde (ipucu, tablo, özet cümle) ayEtiketi kullanılır.
+const KISA_AY_BICIMI = new Intl.DateTimeFormat("tr-TR", {
+  month: "short",
+  timeZone: "UTC",
+});
+
+export function kisaAyEtiketi(yil: number, ay: number): string {
+  const ayAdi = KISA_AY_BICIMI.format(new Date(Date.UTC(yil, ay - 1, 15)));
+  const kisaYil = String(yil % 100).padStart(2, "0");
+  return `${ayAdi} ${kisaYil}`;
+}

@@ -23,6 +23,7 @@ import {
   ltvCacOrani,
   metrikOzeti,
   turkiyeAyi,
+  sonAylar,
   ayHareketi,
   ltvCacSaglikliMi,
 } from "./metrikler.ts";
@@ -86,6 +87,33 @@ function gun9SenaryoListesi(): AbonelikGirdisi[] {
       startedAt: eylulBasi,
     }),
     iptalli("c", tr("2026-10-20T10:00"), { fiyat: 500, startedAt: eylulBasi }),
+  ];
+}
+
+// Gün 11 geçmiş MRR senaryosu ("şimdi" = 24 Ekim 2026). Sahte veri betiği
+// (demo:gecmis) aynı senaryoyu çalıştırıldığı aya göre kaydırarak yazar.
+//   A: aylık 1.000, 10 Ağustos 2025'ten beri (12 aydan eski veri)
+//   B: yıllık 12.000 (aylık 1.000), 15 Ocak 2026'dan beri
+//   C: aylık 500, 5 Mart 2026 - 10 Haziran 2026 (ay içinde iptal)
+//   D: yıllık 1.000 (aylık 83,33...), 1 Mayıs 2026 00:30'dan beri (ay sınırı + küsurat)
+//   E: aylık 2.000, 20 Kasım 2025 - 1 Eylül 2026 00:00 (tam ay sınırında iptal)
+function gun11SenaryoListesi(): AbonelikGirdisi[] {
+  return [
+    abonelik({ customerId: "a", fiyat: 1000, startedAt: tr("2025-08-10T10:00") }),
+    abonelik({
+      customerId: "b",
+      fiyat: 12000,
+      aralik: "YEARLY",
+      startedAt: tr("2026-01-15T10:00"),
+    }),
+    iptalli("c", tr("2026-06-10T10:00"), { fiyat: 500, startedAt: tr("2026-03-05T10:00") }),
+    abonelik({
+      customerId: "d",
+      fiyat: 1000,
+      aralik: "YEARLY",
+      startedAt: tr("2026-05-01T00:30"),
+    }),
+    iptalli("e", tr("2026-09-01T00:00"), { fiyat: 2000, startedAt: tr("2025-11-20T10:00") }),
   ];
 }
 
@@ -351,6 +379,33 @@ test("mrrGecmisi: her ayın son anındaki MRR, içinde bulunulan ay için 'şimd
   assert.equal(tarihtekiMrr(liste, tr("2026-10-31T23:00")), 2000);
 });
 
+test("Gün 11 senaryosu: son 12 ayın MRR'ı (12 aydan eski veri, yıllık plan, ay sınırları)", () => {
+  const liste = gun11SenaryoListesi();
+  const simdi = tr("2026-10-24T11:00");
+
+  const sonuc = mrrGecmisi(liste, sonAylar(simdi, 12), simdi);
+
+  assert.deepEqual(sonuc, [
+    { yil: 2025, ay: 11, mrr: 3000 }, // A + E (A 12 aydan eski)
+    { yil: 2025, ay: 12, mrr: 3000 },
+    { yil: 2026, ay: 1, mrr: 4000 }, // + B (yıllık 12.000 -> 1.000)
+    { yil: 2026, ay: 2, mrr: 4000 },
+    { yil: 2026, ay: 3, mrr: 4500 }, // + C
+    { yil: 2026, ay: 4, mrr: 4500 }, // D 1 Mayıs 00:30'da başlıyor: Nisan'da yok
+    { yil: 2026, ay: 5, mrr: 4583 }, // elle hesap: 1.000 + 1.000 + 500 + 1.000/12 + 2.000 = 4.583,33
+    { yil: 2026, ay: 6, mrr: 4083 }, // C 10 Haziran'da gitti
+    { yil: 2026, ay: 7, mrr: 4083 },
+    { yil: 2026, ay: 8, mrr: 4083 }, // E 1 Eylül 00:00'da gitti: Ağustos'un son anında hâlâ var
+    { yil: 2026, ay: 9, mrr: 2083 }, // E yok
+    { yil: 2026, ay: 10, mrr: 2083 }, // bu ay: "şimdi"ye göre
+  ]);
+
+  // Grafiğin son noktası MRR kartıyla aynı (Gün 11, Karar 2: tutarlı veride eşitlik).
+  const kart = metrikOzeti(liste, EKIM_2026, null).mrr;
+  assert.equal(kart, 2083);
+  assert.equal(sonuc[sonuc.length - 1].mrr, kart);
+});
+
 // =====================================================================
 // AY HAREKETİ: YENİ VE İPTAL SAYISI (Gün 9)
 // Churn ile aynı müşteri bazlı mantık. "iptal" her zaman churn'ün payına eşittir.
@@ -414,4 +469,39 @@ test("ltvCacSaglikliMi: 3 ve üzeri sağlıklı, altı değil", () => {
   assert.equal(ltvCacSaglikliMi(5), true);
   assert.equal(ltvCacSaglikliMi(2.99), false);
   assert.equal(ltvCacSaglikliMi(0.3), false);
+});
+
+// =====================================================================
+// SON AYLAR (Gün 11, MRR grafiği)
+// =====================================================================
+
+test("sonAylar: 24 Ekim 2026 için son 12 ay, eskiden yeniye (Kasım 2025 - Ekim 2026)", () => {
+  const aylar = sonAylar(tr("2026-10-24T11:00"), 12);
+  assert.equal(aylar.length, 12);
+  assert.deepEqual(aylar[0], { yil: 2025, ay: 11 });
+  assert.deepEqual(aylar[1], { yil: 2025, ay: 12 });
+  assert.deepEqual(aylar[2], { yil: 2026, ay: 1 });
+  assert.deepEqual(aylar[11], { yil: 2026, ay: 10 });
+});
+
+test("sonAylar: Ocak'tan geriye önceki yılın Aralık ayına geçer", () => {
+  assert.deepEqual(sonAylar(tr("2027-02-15T10:00"), 3), [
+    { yil: 2026, ay: 12 },
+    { yil: 2027, ay: 1 },
+    { yil: 2027, ay: 2 },
+  ]);
+});
+
+test("sonAylar: gece 00:30 (TR) yeni ay sayılır, UTC'de hâlâ önceki ay olsa bile", () => {
+  // 1 Kasım 00:30 TR = 31 Ekim 21:30 UTC
+  assert.deepEqual(sonAylar(tr("2026-11-01T00:30"), 2), [
+    { yil: 2026, ay: 10 },
+    { yil: 2026, ay: 11 },
+  ]);
+});
+
+test("sonAylar: adet 1 yalnızca bu ay, adet 0 boş liste", () => {
+  const simdi = tr("2026-10-24T11:00");
+  assert.deepEqual(sonAylar(simdi, 1), [{ yil: 2026, ay: 10 }]);
+  assert.deepEqual(sonAylar(simdi, 0), []);
 });

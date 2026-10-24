@@ -292,6 +292,23 @@ export function turkiyeAyi(an: Date): { yil: number; ay: number } {
   return { yil: turkiyeSaatiyle.getUTCFullYear(), ay: turkiyeSaatiyle.getUTCMonth() + 1 };
 }
 
+// Son "adet" takvim ayı (Gün 11, MRR grafiği). Türkiye saatine göre, ESKİDEN YENİYE sıralı;
+// son eleman simdi'nin içinde bulunduğu aydır. Sonuç doğrudan mrrGecmisi'ne verilir.
+// Neden ayrı fonksiyon? turkiyeAyi yalnızca bulunulan ayı verir. Geriye doğru sayarken
+// Ocak'tan önceki yılın Aralık ayına geçmek gerekir. Her ay tek bir sıra numarasına
+// çevrilir (yil x 12 + ay - 1), geriye sayılır ve yeniden yıl/ay olarak ayrılır;
+// böylece yıl geçişi ayrıca ele alınmaz. adet 0 veya negatifse boş liste döner.
+export function sonAylar(simdi: Date, adet: number): { yil: number; ay: number }[] {
+  const { yil, ay } = turkiyeAyi(simdi);
+  const buAyinSirasi = yil * 12 + (ay - 1);
+  const aylar: { yil: number; ay: number }[] = [];
+  for (let geri = adet - 1; geri >= 0; geri--) {
+    const sira = buAyinSirasi - geri;
+    aylar.push({ yil: Math.floor(sira / 12), ay: (sira % 12) + 1 });
+  }
+  return aylar;
+}
+
 // Bir aydaki müşteri hareketi. Churn ile AYNI müşteri bazlı mantık ve AYNI iki an:
 //   - iptal: ay başında aktif olup ayın son anında HİÇ aktif aboneliği kalmayan müşteri.
 //            Bu sayı churn'ün payıyla birebir aynıdır.

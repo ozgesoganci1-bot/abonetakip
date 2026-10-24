@@ -1,7 +1,7 @@
 "use client";
 
 // Plan ekleme ve düzenleme için ortak form.
-// kilitli: planın aktif abonelikleri varsa fiyat ve aralık salt okunur gösterilir.
+// kilitli: plana bağlı abonelik varsa (iptal edilmişler dahil) fiyat ve aralık salt okunur gösterilir.
 // Bu yalnızca kolaylıktır; asıl engel sunucudaki planGuncelle() içindedir.
 
 import { useActionState } from "react";
@@ -65,7 +65,7 @@ export default function PlanFormu(props: Props) {
           readOnly={kilitli}
           yardim={
             kilitli
-              ? "Aktif abonelikler olduğu için değiştirilemez."
+              ? "Plana bağlı abonelikler olduğu için (iptal edilmişler dahil) değiştirilemez. Yeni fiyat için yeni plan oluşturun."
               : "Tam sayı, kuruş yok (ör. 1000)."
           }
           autoComplete="off"
