@@ -205,13 +205,101 @@ describe("Firma tablosu", () => {
     assert.deepEqual(firmalar.map((f) => f.id), [A.tenantId]);
   });
 
-  test("A, B'nin firma ayarını (CAC) değiştiremez", async () => {
-    // Not: filtre "where" içindeki kimliği oturumdaki firmayla değiştirir.
-    // Bu yüzden bu istek B'ye değil A'nın kendi kaydına uygulanır. Önemli olan B'nin değişmemesi.
-    // (Bilinen davranış, issue olarak kayıtlı: Ayarlar sayfası yazılırken ele alınacak.)
-    await dbA.tenant.update({ where: { id: B.tenantId }, data: { cac: 999 } });
-    const b = await dbB.tenant.findFirst({ select: { cac: true } });
-    assert.equal(b?.cac, 0);
+  // Gün 12 (bulgu B6, issue #24): "where" içinde başka bir firmanın kimliği istenirse
+  // kimlik artık oturumdaki firmayla EZİLMEZ; ikisi AND içinde birlikte uygulanır ve
+  // sonuç "bulunamadı" olur. Eskiden bu istekler sessizce A'nın kendi kaydına dönüyordu.
+
+  test("B'nin kimliğiyle okuma: bulunamaz (findFirst, findUnique, findMany, count)", async () => {
+    assert.equal(await dbA.tenant.findFirst({ where: { id: B.tenantId } }), null);
+    assert.equal(await dbA.tenant.findUnique({ where: { id: B.tenantId } }), null);
+    assert.deepEqual(await dbA.tenant.findMany({ where: { id: B.tenantId } }), []);
+    assert.equal(await dbA.tenant.count({ where: { id: B.tenantId } }), 0);
+  });
+
+  test("B'nin kimliğiyle findFirstOrThrow ve findUniqueOrThrow reddedilir", async () => {
+    await assert.rejects(dbA.tenant.findFirstOrThrow({ where: { id: B.tenantId } }));
+    await assert.rejects(dbA.tenant.findUniqueOrThrow({ where: { id: B.tenantId } }));
+  });
+
+  test("kendi kimliğiyle okuma ve güncelleme çalışır (cac-ayari.ts akışı)", async () => {
+    const firma = await dbA.tenant.findUnique({
+      where: { id: A.tenantId },
+      select: { id: true },
+    });
+    assert.equal(firma?.id, A.tenantId);
+
+    await dbA.tenant.update({
+      where: { id: A.tenantId },
+      data: { cac: 1234 },
+      select: { id: true },
+    });
+    assert.equal((await dbA.tenant.findFirst({ select: { cac: true } }))?.cac, 1234);
+
+    // Sonraki testler A'nın CAC'sinin 0 olduğunu varsayar: geri alınır.
+    await dbA.tenant.update({
+      where: { id: A.tenantId },
+      data: { cac: 0 },
+      select: { id: true },
+    });
+    assert.equal((await dbA.tenant.findFirst({ select: { cac: true } }))?.cac, 0);
+  });
+
+  test("A, B'nin firma ayarını (CAC) değiştiremez: istek reddedilir, iki firma da değişmez", async () => {
+    await assert.rejects(
+      dbA.tenant.update({ where: { id: B.tenantId }, data: { cac: 999 } })
+    );
+    // Eskiden bu istek A'nın kendi kaydına uygulanıyordu. Artık ikisi de değişmez.
+    assert.equal((await dbA.tenant.findFirst({ select: { cac: true } }))?.cac, 0);
+    assert.equal((await dbB.tenant.findFirst({ select: { cac: true } }))?.cac, 0);
+  });
+
+  test("kimlik nesne olarak verilirse (in, equals, not) oturumdaki firmayla birlikte uygulanır", async () => {
+    // in: B'yi de içeren liste yalnızca A'yı döner; yalnızca B'yi içeren liste boş döner.
+    const ikisi = await dbA.tenant.findMany({
+      where: { id: { in: [A.tenantId, B.tenantId] } },
+      select: { id: true },
+    });
+    assert.deepEqual(ikisi.map((f) => f.id), [A.tenantId]);
+    assert.deepEqual(await dbA.tenant.findMany({ where: { id: { in: [B.tenantId] } } }), []);
+
+    // equals: B bulunamaz, A bulunur.
+    assert.equal(await dbA.tenant.findFirst({ where: { id: { equals: B.tenantId } } }), null);
+    const esit = await dbA.tenant.findFirst({
+      where: { id: { equals: A.tenantId } },
+      select: { id: true },
+    });
+    assert.equal(esit?.id, A.tenantId);
+
+    // not: "B olmayan" A'yı bulur; "A olmayan" hiçbirini bulmaz (B'ye kaçmaz).
+    const bOlmayan = await dbA.tenant.findFirst({
+      where: { id: { not: B.tenantId } },
+      select: { id: true },
+    });
+    assert.equal(bOlmayan?.id, A.tenantId);
+    assert.equal(await dbA.tenant.findFirst({ where: { id: { not: A.tenantId } } }), null);
+    assert.equal(await dbA.tenant.count({ where: { id: { not: A.tenantId } } }), 0);
+  });
+
+  test("koşulda önceden bulunan AND korunur", async () => {
+    const adA = `${CALISMA}-a`;
+    const adB = `${CALISMA}-b`;
+
+    // id yokken: AND aynen uygulanır.
+    const aBulundu = await dbA.tenant.findFirst({ where: { AND: { name: adA } }, select: { id: true } });
+    assert.equal(aBulundu?.id, A.tenantId);
+    assert.equal(await dbA.tenant.findFirst({ where: { AND: { name: adB } } }), null);
+
+    // id varken: önceki AND (tek nesne ya da liste) silinmez, yeni koşul eklenir.
+    // AND silinseydi "B olmayan" koşulu A'yı bulurdu.
+    assert.equal(
+      await dbA.tenant.findFirst({ where: { id: { not: B.tenantId }, AND: { name: adB } } }),
+      null
+    );
+    assert.equal(
+      await dbA.tenant.findFirst({ where: { id: { not: B.tenantId }, AND: [{ name: adB }] } }),
+      null
+    );
+    assert.equal(await dbA.tenant.findFirst({ where: { id: B.tenantId, AND: { name: adA } } }), null);
   });
 
   test("firma eklenemez ve silinemez", async () => {

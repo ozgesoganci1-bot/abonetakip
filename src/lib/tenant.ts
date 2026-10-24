@@ -25,6 +25,12 @@
 // Test verisinin temizliği (src/test-destek/veri.ts) ham "prisma" ile yapıldığı
 // için bu korumadan etkilenmez.
 //
+// FİRMA TABLOSU KİMLİK KURALI (Gün 12, issue #24): Firma tablosunda "where" içinde
+// başka bir firmanın kimliği istenirse kimlik oturumdakiyle ezilmez, sonuç
+// "bulunamadı" olur (bkz. firmaKosulu). Diğer tablolarda "where" içine yazılan
+// tenantId hâlâ oturumdakiyle ezilir; uygulama kodu "where" içinde tenantId
+// kullanmadığı için bu, ADR'de bilinen sınır olarak bırakıldı.
+//
 // YASAK: prisma.$queryRaw / $executeRaw. Ham SQL bu filtreden geçmez.
 
 import { prisma } from "./db";
@@ -126,6 +132,31 @@ function veriyiDenetle(
   }
 }
 
+// Firma (Tenant) tablosu için sorgu koşulu (Gün 12, bulgu B6, issue #24).
+//
+// Oturumdaki firma kimliği her zaman zorunludur. Kod "where" içinde ayrıca bir "id"
+// gönderirse bu kimlik EZİLMEZ: AND içinde oturumdaki kimlikle BİRLİKTE uygulanır.
+// İkisi aynı anda sağlanamıyorsa veritabanı "bulunamadı" cevabı verir:
+//   okumada null / boş liste / 0, güncellemede "kayıt bulunamadı" hatası.
+// Eskiden gönderilen kimlik oturumdakiyle değiştiriliyordu: B istenince sessizce
+// A'nın kaydı dönüyor ya da A güncelleniyordu (sızıntı yoktu ama yanıltıcıydı).
+//
+// "id" bir nesne olsa da (in, not, equals ...) aynı kural geçerlidir:
+//   { id: { in: [A, B] } } -> yalnızca A; { id: { not: A } } -> hiçbiri.
+// Koşulda daha önceden AND varsa korunur, yeni koşul listenin sonuna eklenir.
+// "id" hiç verilmemişse ya da tam olarak oturumdaki kimlikse davranış değişmez.
+function firmaKosulu(
+  kosul: Record<string, unknown>,
+  tenantId: string
+): Record<string, unknown> {
+  if (kosul.id === undefined || kosul.id === tenantId) {
+    return { ...kosul, id: tenantId };
+  }
+  const oncekiAnd =
+    kosul.AND === undefined ? [] : Array.isArray(kosul.AND) ? kosul.AND : [kosul.AND];
+  return { ...kosul, id: tenantId, AND: [...oncekiAnd, { id: kosul.id }] };
+}
+
 // Verilen kiracıya bağlı bir veritabanı nesnesi üretir.
 // Doğrudan test edilebilmesi için dışarı açıktır; uygulama kodu getTenantDb() kullanır.
 export function tenantaBagliDb(tenantId: string) {
@@ -139,14 +170,15 @@ export function tenantaBagliDb(tenantId: string) {
 
           // Firma (Tenant) tablosu: yalnızca kullanıcının kendi firması.
           // Okunabilir ve güncellenebilir (ör. CAC ayarı). Eklenemez, silinemez.
+          // Koşul firmaKosulu() ile kurulur (Gün 12, issue #24).
           if (model === "Tenant") {
             if (OKUMA.has(operation)) {
-              a.where = { ...kosul, id: tenantId };
+              a.where = firmaKosulu(kosul, tenantId);
               return query(a as typeof args);
             }
             if (operation === "update") {
               veriyiDenetle(model, a.data, "guncelleme");
-              a.where = { ...kosul, id: tenantId };
+              a.where = firmaKosulu(kosul, tenantId);
               return query(a as typeof args);
             }
             throw new Error(`Firma tablosunda "${operation}" işlemine izin verilmez.`);
