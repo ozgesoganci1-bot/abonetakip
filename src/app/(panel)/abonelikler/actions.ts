@@ -29,6 +29,8 @@ import {
   type FormDurumu,
 } from "@/lib/islem";
 
+import { sseHub } from "@/lib/sse-hub";
+
 const ZATEN_AKTIF =
   "Bu müşterinin zaten aktif bir aboneliği var. Önce onu iptal edin.";
 const DEGISMIS =
@@ -254,7 +256,7 @@ export async function abonelikIptal(
   const db = await getTenantDb();
   const abonelik = await db.subscription.findFirst({
     where: { id: kimlik.deger },
-    select: { status: true },
+    select: { status: true, customer: { select: { name: true } } },
   });
   if (!abonelik) {
     return { durum: "hata", mesaj: MESAJ.bulunamadi };
@@ -289,6 +291,20 @@ export async function abonelikIptal(
   } catch {
     console.error("Abonelik iptal edilirken beklenmeyen hata.");
     return { durum: "hata", mesaj: MESAJ.beklenmeyen };
+  }
+
+   // İptal veritabanına yazıldı: aynı firmanın açık bağlantılarına canlı uyarı gider.
+  // tenantId OTURUMDAN gelir (kullanici). Buraya yalnızca işlem başarılıysa gelinir:
+  // çift tıklamada (iptalEdildi false) ve hatada yukarıda zaten return edilmiştir,
+  // bu yüzden uyarı iki kez gitmez ve olmamış iptal için çıkmaz.
+  // Uyarı gönderilemese bile iptal başarılıdır: hata yutulur, kullanıcıya gösterilmez.
+  try {
+    sseHub.yayinla(kullanici.tenantId, {
+      tur: "iptal",
+      musteriAdi: abonelik.customer.name,
+    });
+  } catch {
+    console.error("İptal uyarısı gönderilemedi.");
   }
 
   revalidatePath("/abonelikler");
