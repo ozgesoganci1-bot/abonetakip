@@ -113,7 +113,7 @@ export default async function AboneliklerSayfasi({ searchParams }: SayfaProps) {
 
         {abonelikler.length === 0 ? (
           <BosDurum
-            baslik="Henüz abonelik yok"
+            baslik={filtre ? "Bu filtrede abonelik yok" : "Henüz abonelik yok"}
             aciklama={
               filtre
                 ? "Bu filtreyle eşleşen abonelik bulunmuyor."

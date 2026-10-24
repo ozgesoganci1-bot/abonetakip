@@ -55,11 +55,11 @@ export default async function MusterilerSayfasi({ searchParams }: SayfaProps) {
 
         {musteriler.length === 0 ? (
           <BosDurum
-            baslik="Henüz müşteri yok"
+            baslik={pasifleriGoster ? "Henüz müşteri yok" : "Aktif müşteri yok"}
             aciklama={
               pasifleriGoster
                 ? "Bu firmada kayıtlı müşteri bulunmuyor."
-                : "Yukarıdaki formdan ilk müşterinizi ekleyin."
+                : "Yukarıdaki formdan müşteri ekleyin. Pasif müşterileri görmek için “Pasifleri göster” bağlantısına tıklayın."
             }
           />
         ) : (

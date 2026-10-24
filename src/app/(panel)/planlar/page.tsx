@@ -59,11 +59,11 @@ export default async function PlanlarSayfasi({ searchParams }: SayfaProps) {
 
         {planlar.length === 0 ? (
           <BosDurum
-            baslik="Henüz plan yok"
+            baslik={pasifleriGoster ? "Henüz plan yok" : "Aktif plan yok"}
             aciklama={
               pasifleriGoster
                 ? "Bu firmada kayıtlı plan bulunmuyor."
-                : "Yukarıdaki formdan ilk planınızı ekleyin."
+                : "Yukarıdaki formdan plan ekleyin. Pasif planları görmek için “Pasifleri göster” bağlantısına tıklayın."
             }
           />
         ) : (

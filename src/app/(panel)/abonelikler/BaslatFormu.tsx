@@ -5,6 +5,10 @@
 // Listelerde yalnızca bu firmanın AKTİF müşterileri ve planları bulunur
 // (sayfa bunları getTenantDb() ile okur). Asıl kontrol yine sunucuda yapılır:
 // formu elle değiştirip başka firmanın kimliğini göndermek işe yaramaz.
+//
+// Gün 11 (Parça B): seçim kutularının hata gösterimi PlanFormu ve FormAlani ile
+// aynı yapıya getirildi: hata metni kimlik alır, role="alert" ile duyurulur ve
+// kutuya aria-describedby ile bağlanır. Mesajlar değişmedi.
 
 import Link from "next/link";
 import { useActionState } from "react";
@@ -20,7 +24,14 @@ type Props = {
 };
 
 const SECIM_SINIFI =
-  "block w-full rounded-lg border bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-200";
+  "block w-full rounded-lg border bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:outline-none focus:ring-2";
+
+// Hata varsa kırmızı, yoksa normal çerçeve (PlanFormu'ndaki seçim kutusuyla aynı).
+function cerceve(hata: string | undefined): string {
+  return hata
+    ? "border-red-400 focus:border-red-500 focus:ring-red-200"
+    : "border-slate-300 focus:border-indigo-500 focus:ring-indigo-200";
+}
 
 export default function BaslatFormu({ musteriler, planlar }: Props) {
   const [durum, formIslemi, bekliyor] = useActionState(
@@ -61,11 +72,8 @@ export default function BaslatFormu({ musteriler, planlar }: Props) {
   return (
     <form action={formIslemi} noValidate className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label
-            htmlFor="musteriId"
-            className="mb-1 block text-sm font-medium text-slate-700"
-          >
+        <div className="space-y-1.5">
+          <label htmlFor="musteriId" className="block text-sm font-medium text-slate-700">
             Müşteri
           </label>
           <select
@@ -73,7 +81,8 @@ export default function BaslatFormu({ musteriler, planlar }: Props) {
             name="musteriId"
             defaultValue={durum.degerler?.musteriId ?? ""}
             aria-invalid={musteriHatasi ? true : undefined}
-            className={`${SECIM_SINIFI} ${musteriHatasi ? "border-red-400" : "border-slate-300"}`}
+            aria-describedby={musteriHatasi ? "musteriId-hata" : undefined}
+            className={`${SECIM_SINIFI} ${cerceve(musteriHatasi)}`}
           >
             <option value="">Müşteri seçin</option>
             {musteriler.map((musteri) => (
@@ -83,15 +92,14 @@ export default function BaslatFormu({ musteriler, planlar }: Props) {
             ))}
           </select>
           {musteriHatasi && (
-            <p className="mt-1 text-sm text-red-600">{musteriHatasi}</p>
+            <p id="musteriId-hata" role="alert" className="text-sm text-red-600">
+              {musteriHatasi}
+            </p>
           )}
         </div>
 
-        <div>
-          <label
-            htmlFor="planId"
-            className="mb-1 block text-sm font-medium text-slate-700"
-          >
+        <div className="space-y-1.5">
+          <label htmlFor="planId" className="block text-sm font-medium text-slate-700">
             Plan
           </label>
           <select
@@ -99,7 +107,8 @@ export default function BaslatFormu({ musteriler, planlar }: Props) {
             name="planId"
             defaultValue={durum.degerler?.planId ?? ""}
             aria-invalid={planHatasi ? true : undefined}
-            className={`${SECIM_SINIFI} ${planHatasi ? "border-red-400" : "border-slate-300"}`}
+            aria-describedby={planHatasi ? "planId-hata" : undefined}
+            className={`${SECIM_SINIFI} ${cerceve(planHatasi)}`}
           >
             <option value="">Plan seçin</option>
             {planlar.map((plan) => (
@@ -109,7 +118,11 @@ export default function BaslatFormu({ musteriler, planlar }: Props) {
               </option>
             ))}
           </select>
-          {planHatasi && <p className="mt-1 text-sm text-red-600">{planHatasi}</p>}
+          {planHatasi && (
+            <p id="planId-hata" role="alert" className="text-sm text-red-600">
+              {planHatasi}
+            </p>
+          )}
         </div>
       </div>
 
