@@ -19,6 +19,7 @@ Bu klasör, AboneTakip projesini geliştirirken yapay zekâya yazdığım prompt
 | 7 | Hafta 1 inceleme turu, hata düzeltme ve kod anlama | [gun_7_prompt_cevap.md](gun_7_prompt_cevap.md) |
 | 8 | Metrik hesaplama fonksiyonları | [gun_8_prompt_cevap.md](gun_8_prompt_cevap.md) |
 | 9 | KPI dashboard ve CAC ayarı | [gun_9_prompt_cevap.md](gun_9_prompt_cevap.md) |
+| 10 | SSE ile iptal uyarısı ve riskli abonelik listesi | [gun_10_prompt_cevap.md](gun_10_prompt_cevap.md) |
 
 Sonraki günler çalışma ilerledikçe bu klasöre eklenecektir.
 
