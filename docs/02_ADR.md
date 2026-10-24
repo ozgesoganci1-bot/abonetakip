@@ -652,3 +652,128 @@ Senaryo: A aylık 1.000 TL kalıyor; B yıllık 12.000 TL ve C aylık 500 TL bu 
 ### Süreç notları
 - `package.json` için sohbet tam dosya önerdi. Ana sohbette bağımlılık listesi şüpheli bulundu, kontrolde gerçek dosyayla aynı çıktı. Yine de tam dosya yapıştırmak yerine yalnızca betik satırları (`dev:test`, `demo:veri`) ve test listeleri elle eklendi.
 - Dosyalar terminalden boş oluşturuldu ve kod VS Code'a yapıştırıldı; uzun yapıştırmalar kesilmesin diye.
+## Gün 10 kararları (24 Ekim 2026): SSE uyarıları ve riskli abonelik listesi
+
+**Durum:** Kod tamamlandı, `gun10-sse` dalında, PR bekliyor. [PR birleşince squash commit numarası yazılacak.]
+**Sonuç:** `npm test` 75 test, `npm run test:db` 48 test geçiyor; `npm run build` [sonuç yazılacak].
+Uyarılar ve riskli liste Neon test dalında elle kontrol edildi (aşağıda "Elle test").
+
+### Kararlar
+
+**K10.1: Bağlantılar sunucu belleğinde, firmaya göre gruplanarak tutulur**
+- **Karar:** `src/lib/sse-hub.ts` "tenantId → açık bağlantılar" listesini bellekte tutar. Mesaj yalnızca
+  verilen firmanın kümesine yazılır; başka firmanın bağlantısı o kümede olmadığı için mesajı alamaz.
+  `tenantId` her zaman oturumdan gelir (`api/events/route.ts` ve `abonelikler/actions.ts`), istemciden asla.
+  Hub tek örnek olarak `globalThis` üzerinde saklanır: geliştirme modunda yeniden yüklemede liste silinmez ve
+  route ile sunucu işlemi aynı listeyi görür.
+- **Gerekçe:** Uygulama Render'da tek Node süreci olarak çalışır; bağlantıların ve iptallerin hepsi aynı
+  süreçten geçer. Harici servis (Redis, Pusher vb.) kapsam dışıdır (WON'T). Hub Next.js'e ve veritabanına
+  bağlı değildir, bu yüzden `npm test` ile veritabanı olmadan test edilir.
+- **Sınır:** İkinci bir sunucu süreci açılırsa birindeki iptali diğerindeki kullanıcılar duymaz. O durumda
+  harici bir servis gerekir.
+
+**K10.2: Firma başına en fazla 20 açık bağlantı; sınır dolunca YENİ bağlantı reddedilir**
+- **Karar:** `FIRMA_BASINA_SINIR = 20`. Sınır doluysa uç nokta 429 döner, açık bağlantılara dokunulmaz.
+  Sınır kontrolü ile listeye ekleme tek senkron adımdır; Node tek iş parçacıklı olduğu için iki istek araya giremez.
+- **Gerekçe:** En eski bağlantıyı kapatmak döngü yaratırdı: kapatılan sekme kendiliğinden yeniden bağlanır ve
+  başka bir sekmeyi düşürürdü. 429 alan tarayıcı yeniden denemeyi bırakır.
+- **Sonuç:** 21. sekmede canlı uyarı gelmez, sayfanın geri kalanı normal çalışır. Bir firmanın dolu sınırı
+  başka firmayı etkilemez.
+
+**K10.3: SSE uç noktası API gibi davranır: 401, 403, 429; başlıklar ve nabız**
+- **Karar:** `GET /api/events` oturumu `getCurrentUser()` ile okur (`requireUser()` kullanılmaz, çünkü o
+  giriş sayfasına yönlendirir). Giriş yoksa 401, rol `manager` veya `finance` değilse 403, sınır doluysa 429.
+  Başarılı yanıtın başlıkları: `Content-Type: text/event-stream; charset=utf-8`,
+  `Cache-Control: no-cache, no-transform`, `X-Accel-Buffering: no`. Akışın ilk satırı `retry: 5000`'dir;
+  her 25 saniyede bir boş nabız satırı gönderilir.
+- **Temizlik:** Tarayıcı kapanması, isteğin iptal sinyali, yazma hatası ve ömür dolması tek `temizle()`
+  fonksiyonuna çıkar (zamanlayıcılar durdurulur, bağlantı listeden silinir). Bir yol çalışmasa bile
+  diğerleri belleği temizler.
+- **Not:** `proxy.ts` ve `middleware.ts` yoktur; uç noktanın yanıtına araya giren bir katman yoktur.
+
+**K10.4: Bağlantı azami ömrü 15 dakika, yalnızca `route.ts` içinde**
+- **Karar:** Sunucu her bağlantıyı en geç 15 dakikada kapatır. Tarayıcı `retry` süresi (5 sn) sonra güncel
+  çerezle yeniden bağlanır. `sse-hub.ts` ve testleri bu ömrü bilmez.
+- **Gerekçe:** Oturum çerezi imzalıdır ama sunucuda tutulmaz; sunucu çıkışı bilemez. Ömür sınırı, çıkış
+  yapmış ya da silinmiş kullanıcının bağlantısının en geç 15 dakikada 401 almasını sağlar.
+- **Bedel:** Kapanma ile yeniden bağlanma arasındaki 5 saniyelik aralıkta yapılan iptalin canlı uyarısı
+  kaçabilir (bkz. Bilinen sınırlar).
+
+**K10.5: İptal uyarısı yalnızca iptal başarıyla yazıldıktan sonra gönderilir**
+- **Karar:** `abonelikIptal` içinde, transaction başarılı olduktan sonra `sseHub.yayinla(kullanici.tenantId, ...)`
+  çağrılır. Müşteri adı mevcut sorguya eklenir (`customer: { select: { name: true } }`), sorgu yine
+  `getTenantDb()` üzerindendir.
+- **Kurallar:** Çift tıklamada ikinci istek `updateMany` ile 0 satır etkiler ve fonksiyondan uyarı gönderilmeden
+  çıkılır; yani uyarı iki kez gitmez. Hatada da uyarı gitmez. Uyarı gönderilemese bile iptal başarılı sayılır:
+  yayın kendi `try/catch` bloğundadır, hata yutulur ve kullanıcıya gösterilmez.
+- **Kapsam:** Uyarı iptali yapan kişinin kendi pencerelerine de gider. Yalnızca ilgili firmanın açık bağlantılarına ulaşır.
+
+**K10.6: Uyarı bandı panelin her sayfasında görünür; çıkışta bağlantı kapanır**
+- **Karar:** `UyariDinleyici` bileşeni `(panel)/layout.tsx` içindedir. Layout sayfa geçişlerinde yeniden
+  çizilmediği için bağlantı sayfa değiştikçe kopmaz.
+- **Çıkış:** Çıkış yapan kullanıcı `/giris` sayfasına gider. Bu sayfa `(panel)` layout'unun dışında olduğu için
+  bileşen kaldırılır, `EventSource` kapatılır ve sunucudaki bağlantı listeden silinir.
+- **Güvenlik:** Müşteri adı React ile metin olarak basılır, HTML olarak işlenmez. Sunucudan gelen veri
+  doğrulanır; bozuk biçim sessizce yok sayılır. Ekranda en fazla 5 bant tutulur, en yenisi üstte.
+- **Hata davranışı:** Uç nokta 401, 403 veya 429 dönerse `EventSource` yeniden denemeyi bırakır; bileşen
+  hata göstermeden sessizce durur.
+
+**K10.7: Riskli abonelik kuralı issue #6'dan gelir; süresi geçmiş ACTIVE kayıtlar da listededir**
+- **Karar:** `src/lib/riskli-abonelikler.ts`: `status = ACTIVE` ve `currentPeriodEnd < şimdi + 7 gün`.
+  Süresi geçmiş ama hâlâ ACTIVE olanlar bu tek koşula girer, ayrı koşul yazılmaz. Tam 7 gün kalmış abonelik
+  "7 günden az" olmadığı için girmez. Eşik `RISK_GUN = 7` sabitidir, yalnızca bu dosyada tanımlıdır.
+- **Yenileme ve iptal:** Yenileme `currentPeriodEnd`'i ileri taşıdığı için yenilenmiş abonelik listeye girmez.
+  İptal edilmiş abonelik `status` koşuluna takılır.
+- **Etiket:** `riskEtiketi(bitis, simdi)` saf fonksiyondur: geçmişse "Süresi geçmiş", 1 günden azsa
+  "1 günden az kaldı", değilse "X gün kaldı" (milisaniye farkından hesaplanır, tam gün aşağı yuvarlanır).
+- **Dashboard:** Liste `dashboardVerisiniGetir` içine konmadı; sayfada ayrı fonksiyon olarak `Promise.all`
+  ile paralel çağrılır. `dashboard-verisi.ts` ve testi değişmedi. Liste sayfa açılışında hesaplanır, SSE
+  yalnızca iptal olayını canlı iletir. Manager ve finance aynı listeyi görür.
+- **Gösterim:** "Süresi geçmiş" kırmızı rozet ve `✕` simgesiyle, "X gün kaldı" sarı rozet ve `!` simgesiyle
+  gösterilir; anlam yalnızca renge bırakılmaz. Liste bitişi en yakın olandan sıralıdır.
+
+### Test kapsamı
+- `sse-hub.test.ts` (11: firma ayrımı, aynı firmada iki bağlantı, ayrılma, boş firmanın silinmesi, bozuk
+  bağlantı, çift ayrılma, sınır ile üç sınır senaryosu, varsayılan sınır 20, mesaj biçimi) ve
+  `riskli-etiket.test.ts` (5: geçmiş, 1 günden az, 1 gün, 3 gün, 6 gün 23 saat): `npm test`
+- `riskli-abonelikler.test.ts` (4: liste (dahil olanlar, dışarıda kalanlar ve 7 gün sınırı), etiket ve sıralama,
+  A ve B ayrımı, ad alanları): `npm run test:db`
+- Sabit "şimdi" yerine bir kez alınan gerçek saat kullanılır; her firmadaki 30 gün kalan kayıt kaymaz.
+
+### Elle test (Neon test dalı)
+Pencereler: A manager (Chrome), A finance (Chrome gizli), B manager (Safari), B finance (Safari özel).
+- [SONUÇ: aynı firmada iptal, uyarı A'nın iki penceresinde görünüyor mu]
+- [SONUÇ: B pencerelerinde uyarı görünmüyor mu; ters yönde de]
+- [SONUÇ: `events` isteği türü `eventsource`, üç başlık görünüyor mu]
+- [SONUÇ: çıkış yapılmış pencerede `/api/events` 401 mi]
+- [SONUÇ: sunucu yeniden başlatma ve "Offline" denemesinde hata ekranı çıkmadı mı; yeni uyarı ulaştı mı]
+- [SONUÇ: Neon SQL Editor'de tek kaydın `currentPeriodEnd` değeri güncellenerek riskli liste ve "Süresi geçmiş" etiketi]
+
+### Bilinen sınırlar
+- Tek sunucu süreci varsayılır (K10.1). İkinci instance açılırsa uyarılar yalnızca aynı süreçtekilere ulaşır.
+- Render uykudayken ya da yeniden başlarken yapılan iptallerin canlı uyarısı kaybolur. İptal kaydı
+  veritabanında durduğu için veri kaybı yoktur ve abonelik listesinde görünür. [Açık bir SSE bağlantısının
+  ücretsiz servisi uyanık tutup tutmadığı Render'da denenmedi.]
+- Her bağlantı 15 dakikada bir kapanıp yeniden bağlanır; kapanma ile bağlanma arasındaki aralıkta
+  (`retry: 5000`, yaklaşık 5 saniye) yapılan iptalin canlı uyarısı kaçabilir. Uyarı gelmese bile iptal
+  kaydedilir ve listede görünür.
+- Kullanıcı başka bir sekmede çıkış yaparsa, açık kalan sekmenin bağlantısı en geç 15 dakika boyunca
+  firmanın uyarılarını almaya devam eder. Kullanıcı silinirse ya da rolü değişirse de aynı süre geçerlidir.
+  Neden: oturum çerezi sunucuda tutulmuyor, sunucu çıkışı bilemiyor.
+- Firma başına 20 bağlantı sınırı dolunca ek sekmeler canlı uyarı almaz (K10.2).
+- HTTP/1.1'de tarayıcı bir siteye en fazla 6 bağlantı açar; aynı tarayıcıda çok sekme açılırsa sayfalar
+  takılabilir. Üretimde HTTP/2 kullanıldığı için beklenmez, geliştirmede dikkat edilmelidir.
+- `abonelikIptal` sunucu işlemi `next/cache` kullandığı için mevcut test düzeninde doğrudan çağrılmıyor;
+  yayının bağlanması elle testle doğrulanır. Hub'ın firma ayrımı otomatik testlidir.
+- Arayüz için otomatik ekran testi yoktur. Next.js'in sıkıştırmasının `no-transform` başlığına uyup
+  uymadığı elle testte uyarının gecikmesine bakılarak doğrulanır.
+
+### Süreç notları
+- `package.json` için tam dosya yerine yalnızca betik satırlarının sonuna dosya adı eklendi
+  (`perl` ile, `git diff` ile doğrulandı).
+- Dosyalar terminalden boş oluşturuldu, kod VS Code'a yapıştırıldı. Yapıştırmada bozulan girintiler
+  commit öncesi `git diff` ile yakalandı ve düzeltildi.
+- Commit'ler dört parçaya bölündü: (a) hub ve testi, (b) uç nokta, iptal yayını, dinleyici ve layout,
+  (c) riskli abonelikler ve dashboard kartı, (d) bu ADR bölümü. Her commit öncesi üç tarama ve testler çalıştırıldı.
+- Elle test yalnızca `npm run dev:test` ile Neon test dalında yapıldı; `npm run dev` kullanılmadı.
+- Commit (a) trailer'ı Claude Opus 5.5, sonraki commit'ler Claude Sonnet 5.5 (sohbette model değişti).
