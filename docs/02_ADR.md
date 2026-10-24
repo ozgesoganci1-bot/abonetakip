@@ -780,11 +780,14 @@ Pencereler: A manager (Chrome), A finance (Chrome gizli), B manager (Safari), B 
 
 ## Gün 11 kararları (24 Ekim 2026): aylık MRR grafiği (Parça A)
 
-**Durum:** Parça A kodu tamamlandı (dal: `gun11a-mrr-grafigi`). Gün 11 iki parçaya
-bölündü (K11.6). Parça B (boş durum, hata ve yüklenme ekranları, form mesajları) ayrı dal
-ve PR ile gelecek.
-**Sonuç:** `npm test`, `npm run test:db`, `npm run lint`, `npm run build` temiz. Grafik test
-dalında üç sahte firmayla elle sınandı (aşağıda).
+**Durum:** Gün 11 iki parçaya bölündü (K11.6).
+- Parça A (aylık MRR grafiği): birleşti, PR #37, squash commit `344b753`, canlıda doğrulandı.
+- Parça B (boş durum, hata ve yüklenme ekranları, form mesajları): dal
+  `gun11b-bos-hata-ekranlari`, beş commit (`c2cec85`, `1710934`, `c991cae`, `791e55e` ve bu
+  ADR commit'i), tek PR.
+
+**Sonuç:** Her iki parçada `npm test`, `npm run test:db`, `npm run lint`, `npm run build`
+temiz. Test dalında elle sınandı (Parça A ve Parça B tabloları).
 
 ### Kararlar
 
@@ -887,3 +890,102 @@ dalında üç sahte firmayla elle sınandı (aşağıda).
 - Plan detay sayfası ve abonelik işlemleri "bulunamadı" için zaten `notFound()` ve
   `MESAJ.bulunamadi` kullanıyor; Parça B bunları ortak 404 ve mesaj bileşenleriyle
   tutarlı hâle getirecek.
+
+  ### Parça B kararları: boş durum, hata ve yüklenme ekranları, form mesajları
+
+**K11.7: 404 iki katmanlıdır; başka kiracının kaydı "bulunamadı"dır**
+- **Panel içi:** Mevcut `src/app/(panel)/not-found.tsx` kullanıldı ("Kayıt bulunamadı").
+  Geçersiz kimlik, var olmayan kayıt ve başka firmanın kaydı aynı ekranı alır; müşteri ve
+  plan detay sayfaları zaten `notFound()` çağırıyordu, değişmedi. Yalnızca bağlantı metnindeki
+  boşluk düzeltildi.
+- **Kök:** Yeni `src/app/not-found.tsx`. Var olmayan adreslerde Next.js'in İngilizce sayfası
+  yerine Türkçe "Sayfa bulunamadı". Oturum ve veri okumaz; ana sayfaya bağlantı verir.
+
+**K11.8: Yetkisiz erişim sayfa içinde `YetkiYok` ile gösterilir**
+- Ayarlar ve Kullanıcılar sayfaları rolü `requireManager()` ile **sunucuda ve sorgulardan
+  önce** kontrol ediyordu; değişmedi. Finance kullanıcısında `getTenantDb()` hiç çalışmaz.
+- `YetkiYok`'a "firma yöneticinize başvurun" cümlesi ve Dashboard bağlantısı eklendi.
+- **Değerlendirilen:** Next.js `forbidden()` (deneysel ayar gerektiriyor) ve ayrı `/yetkisiz`
+  sayfası (yeni rota ve yönlendirme). İkisi de kapsamı büyüttüğü için seçilmedi.
+- **Bilinen sınır:** Yetkisiz sayfa HTTP 200 döner, 403 değil. Sunucu işlemleri (CAC kaydetme,
+  pasife alma) kendi içinde ayrıca rol kontrolü yapar ve `MESAJ.yetkiYok` döner.
+
+**K11.9: Genel hata ekranları ayrıntı göstermez**
+- **Panel:** Yeni `src/app/(panel)/error.tsx`. Sol menü yerinde kalır; "Bir şeyler ters gitti",
+  `MESAJ.beklenmeyen` ve varsa Next.js'in kısa hata kodu (digest) gösterilir. Hata mesajı ve
+  yığın izi yazılmaz (adres, sorgu veya veri sızabilir). "Tekrar dene" önce sayfa verisini
+  sunucudan yeniden ister (`router.refresh`), sonra ekranı sıfırlar (`reset`).
+- **Kök:** Yeni `src/app/global-error.tsx`. Kök yerleşim çökerse görünür; kendi `<html lang="tr">`
+  etiketi ve yalnızca satır içi stil (genel stiller yüklenmemiş olabilir), "Sayfayı yenile".
+  Elle denenmedi (kök yerleşimi bilerek bozmak gerekir); derleme ve tür denetimiyle doğrulandı.
+
+**K11.10: Panel için tek yüklenme ekranı; ölçülen durum kodu**
+- Yeni `src/app/(panel)/loading.tsx`: başlık ve kart iskeleti, görünür "Yükleniyor…"
+  (`role="status"`), hareket azaltma tercihine uyar. Sayfa başına ayrı dosya yok.
+- **Ölçüm** (Chrome Network, belge isteğinin durum kodu):
+
+| Adres | Ölçüm 1 (kod değişmeden) | Ölçüm 2 (`loading.tsx` ile) |
+|---|---|---|
+| Oturumsuz `/dashboard` | 307 → `/giris` 200 | 307 → `/giris` 200 |
+| `/musteriler/abc` (geçersiz kimlik) | 404 | 200 |
+| Başka kiracının plan adresi | 404 | 200 |
+| `/olmayan-sayfa` | 404 (İngilizce) | 404 (Türkçe) |
+
+- **Bilinen sınır:** `loading.tsx` sayfayı akışla gönderdiği için, panel içinde `notFound()`
+  çağrılan sayfalar 404 ekranını gösterir ama yanıt kodu 200'dür. Var olmayan kayıt ile başka
+  firmanın kaydı **aynı kodu ve aynı ekranı** aldığı için kaydın varlığı sızmaz. Panel sayfaları
+  giriş gerektirdiği için arama motorlarına açık değildir.
+- **Değerlendirilen:** `loading.tsx`'i yalnızca Dashboard ve Abonelikler'e koymak (detay
+  sayfaları 404 kalırdı). Tutarlı yüklenme ekranı tercih edildi; sınır kabul edildi.
+
+**K11.11: Boş durum başlıkları gerçeği söyler**
+- Ortak `BosDurum` bileşeni zaten Dashboard, Müşteriler, Planlar ve Abonelikler'de vardı.
+- Müşteriler ve Planlar: varsayılan görünümde (yalnızca aktifler) başlık "Henüz … yok" yerine
+  "Aktif … yok" ve "Pasifleri göster" ipucu. Bütün kayıtları pasif olan firmada "henüz yok"
+  yanlış bilgi veriyordu. Ek sorgu yok.
+- Abonelikler: filtre seçiliyken "Bu filtrede abonelik yok".
+
+**K11.12: Form mesajlarında yalnızca tutarsız olanlar değişti**
+
+| Dosya | Değişti mi? | Neden |
+|---|---|---|
+| `IslemMesaji.tsx` | Evet | Başarıda ✓, hatada ! simgesi (`aria-hidden`); anlam yalnızca renge bırakılmaz |
+| `abonelikler/BaslatFormu.tsx` | Evet | Seçim kutusu hataları ekran okuyucuya duyurulmuyor ve kutuya bağlı değildi; `PlanFormu` ile aynı yapı (`role="alert"`, `aria-describedby`). Metinler aynı |
+| `(auth)/actions.ts`, `GirisFormu.tsx`, `KayitFormu.tsx` | Evet | Kendi mesaj türü ve kutusu vardı; tarayıcı doğrulaması açıktı (sunucunun Türkçe mesajı görünmüyordu); hatada e-posta siliniyordu. Ortak `FormDurumu`, `IslemMesaji` ve `noValidate`'e geçildi; e-posta (kayıtta firma adı ve ad soyad) korunur, **parola hiçbir zaman geri gönderilmez**. Mesaj metinleri ve doğrulama kuralları değişmedi |
+| `MusteriFormu`, `PlanFormu`, `CacFormu`, iki `PasifeAlDugmesi`, `SatirIslemleri` | Hayır | Zaten ortak yapıda ve tutarlı |
+
+**K11.13: Kök yerleşim Türkçe**
+- `src/app/layout.tsx`: `lang="en"` → `lang="tr"`, sekme başlığı "Create Next App" →
+  "AboneTakip", Türkçe açıklama. Ekran okuyucular Türkçe metni doğru dilde okur.
+
+### Parça B elle sınama (test dalı)
+
+| Durum | Sonuç |
+|---|---|
+| Boş hesap (yeni firma) | Dashboard, Müşteriler, Planlar, Abonelikler boş durumları doğru; Abonelikler "önce bir müşteri ve bir plan ekleyin" |
+| Tek müşteri pasife alındı | Varsayılan görünümde "Aktif müşteri yok" ve ipucu; "Pasifleri göster" ile listede |
+| Var olmayan adres | Türkçe kök 404 |
+| Geçersiz kimlik ve başka kiracının kimliği | Aynı "Kayıt bulunamadı" ekranı ve aynı kod (K11.10) |
+| Finance → Ayarlar, Kullanıcılar | `YetkiYok`; menüde iki sayfa yok; CAC görünmez |
+| Yavaş bağlantı (Slow 4G) | Menü yerinde, yüklenme iskeleti |
+| Wi-Fi kapalıyken sayfa geçişi | Türkçe hata ekranı, ayrıntı yok; Wi-Fi açılınca "Tekrar dene" çalıştı |
+| Panel formları | Başarıda ✓, hatada !; abonelik formunda seçim kutusu hataları duyuruluyor |
+| Giriş: yanlış parola, boş form | Türkçe mesaj, tarayıcı balonu yok, e-posta korunur, parola boş |
+| Giriş: manager ve finance | İkisi de Dashboard'a düşer; rozet ve menü role göre doğru |
+| Çıkış | Giriş sayfasına döner |
+| Kayıt: kısa parola, bozuk e-posta, var olan e-posta | Sunucunun Türkçe mesajı; firma adı, ad soyad, e-posta korunur |
+| Kayıt: yeni firma | Dashboard, rozet Yönetici, boş durum |
+
+### Parça B bilinen sınırları ve notlar
+- Yetkisiz sayfa ve `loading.tsx` sonrası panel 404'leri HTTP 200 döner (K11.8, K11.10).
+- `global-error.tsx` elle denenmedi (K11.9).
+- Yeni açılmış (hiç müşterisi olmayan) firmada da başlık "Aktif müşteri yok" görünür; ek sorgu
+  yapmamak için kabul edildi.
+- Fiyat biçimleme tekrarı: `planlar/page.tsx` (`tlBicimle`), `abonelikler/page.tsx` ve
+  `BaslatFormu.tsx` (`toLocaleString`) `bicim.tlMetni` ile aynı işi yapıyor; ayrı bir
+  temizlikte birleştirilecek.
+- **Geliştirme notu:** `npm run dev:test` yeniden başlatılırken açık kalan panel sekmeleri
+  kendini sürekli yenileyebilir. Sunucuyu yeniden başlatmadan önce `localhost:3000` sekmeleri
+  kapatılır.
+- Kullanıcılar sayfası hâlâ yer tutucu; finance denemeleri test dalında önceden açılmış finance
+  kullanıcılarıyla yapıldı.
