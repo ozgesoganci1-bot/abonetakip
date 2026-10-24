@@ -654,7 +654,7 @@ Senaryo: A aylık 1.000 TL kalıyor; B yıllık 12.000 TL ve C aylık 500 TL bu 
 - Dosyalar terminalden boş oluşturuldu ve kod VS Code'a yapıştırıldı; uzun yapıştırmalar kesilmesin diye.
 ## Gün 10 kararları (24 Ekim 2026): SSE uyarıları ve riskli abonelik listesi
 
-**Durum:** Kod tamamlandı, `gun10-sse` dalında, PR bekliyor. [PR birleşince squash commit numarası yazılacak.]
+**Durum:** Kod tamamlandı ve birleşti (PR #35, squash commit `5f9a45e`), Render üzerinde yayında. Canlıda doğrulandı: oturumsuz istek 401 döner; oturumlu istek `text/event-stream` ile açık kalır, `retry: 5000` ve yaklaşık 25 saniyede bir `: nabiz` gelir. `x-accel-buffering` başlığı canlıda yanıtta görünmüyor (ara katman tüketiyor olabilir), akış tamponlanmıyor. Canlıda gerçek uyarı akışı (iptal, ardından bildirim) denenmedi, çünkü canlı veritabanına yazmayı gerektirirdi.
 **Sonuç:** `npm test` 75 test, `npm run test:db` 48 test geçiyor; `npm run build` [sonuç yazılacak].
 Uyarılar ve riskli liste Neon test dalında elle kontrol edildi (aşağıda "Elle test").
 
