@@ -3,6 +3,7 @@ import { cikisAction } from "@/app/(auth)/actions";
 import Dugme from "@/components/ui/Dugme";
 import Rozet from "@/components/ui/Rozet";
 import MenuBaglantisi from "./MenuBaglantisi";
+import UyariDinleyici from "./UyariDinleyici";
 
 // Menü bağlantıları. "sadeceManager" olanlar finance kullanıcısına gösterilmez.
 // DİKKAT: Menüde bir bağlantıyı gizlemek yetki kontrolü DEĞİLDİR.
@@ -88,6 +89,7 @@ export default async function PanelLayout({
         </header>
 
         <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 md:px-8">
+          <UyariDinleyici />
           {children}
         </main>
       </div>

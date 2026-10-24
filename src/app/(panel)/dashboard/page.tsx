@@ -4,6 +4,7 @@ import { getTenantDb } from "@/lib/tenant";
 import { yoneticiMi } from "@/lib/yetki";
 import { dashboardVerisiniGetir } from "@/lib/dashboard-verisi";
 import { ltvCacSaglikliMi } from "@/lib/metrikler";
+import { riskliAbonelikler } from "@/lib/riskli-abonelikler";
 import { tlMetni, yuzdeMetni, sayiMetni, ayEtiketi } from "@/lib/bicim";
 import SayfaBasligi from "@/components/ui/SayfaBasligi";
 import BosDurum from "@/components/ui/BosDurum";
@@ -20,12 +21,22 @@ import KpiKarti from "./KpiKarti";
 const linkSinifi =
   "font-medium text-indigo-700 underline underline-offset-2 hover:text-indigo-900";
 
+// Tarihler UTC saklanır, ekranda Türkiye saatine göre gösterilir.
+const TARIH = new Intl.DateTimeFormat("tr-TR", {
+  dateStyle: "medium",
+  timeZone: "Europe/Istanbul",
+});
+
 export default async function DashboardSayfasi() {
   // Layout da giriş kontrolü yapar, ama Next.js layout ile sayfayı birbirinden
   // bağımsız çalıştırır. Bu yüzden her sayfa kendi kontrolünü de yapar.
   const kullanici = await requireUser();
   const db = await getTenantDb();
-  const veri = await dashboardVerisiniGetir(db);
+  // İki sorgu birbirine bağlı değil: paralel çalışır. İkisi de aynı tenant filtreli db'yi kullanır.
+  const [veri, riskliler] = await Promise.all([
+    dashboardVerisiniGetir(db),
+    riskliAbonelikler(db),
+  ]);
 
   const yonetici = yoneticiMi(kullanici.role);
   const donemAdi = ayEtiketi(veri.yil, veri.ay);
@@ -154,6 +165,49 @@ export default async function DashboardSayfasi() {
           Sayılar müşteri bazlıdır: ay içinde plan değiştiren müşteri ne yeni ne iptal
           sayılır.
         </p>
+      </Kart>
+
+      <Kart className="mt-4">
+        <h2 className="text-sm font-medium text-slate-600">
+          Riskli abonelikler ({riskliler.length})
+        </h2>
+        <p className="mt-1 text-xs text-slate-500">
+          Dönem bitişine 7 günden az kalmış ve henüz yenilenmemiş aktif abonelikler.
+        </p>
+
+        {riskliler.length === 0 ? (
+          <p className="mt-4 text-sm text-slate-600">Riskli abonelik yok.</p>
+        ) : (
+          <ul className="mt-4 divide-y divide-slate-100">
+            {riskliler.map((r) => (
+              <li
+                key={r.id}
+                className="flex flex-wrap items-center justify-between gap-2 py-3"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-slate-900">
+                    {r.musteriAdi}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {r.planAdi} · Dönem bitişi: {TARIH.format(r.bitis)}
+                  </p>
+                </div>
+                {/* Anlam yalnızca renge bırakılmaz: simge + metin */}
+                {r.etiket.gecmis ? (
+                  <Rozet ton="kirmizi">
+                    <span aria-hidden="true">✕&nbsp;</span>
+                    {r.etiket.metin}
+                  </Rozet>
+                ) : (
+                  <Rozet ton="sari">
+                    <span aria-hidden="true">!&nbsp;</span>
+                    {r.etiket.metin}
+                  </Rozet>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
       </Kart>
     </div>
   );
