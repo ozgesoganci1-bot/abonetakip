@@ -19,12 +19,14 @@ import {
 import { epostaDogrula, type KayitGirdisi } from "./validation";
 import { yoneticiMi } from "./yetki";
 import { tekrarEdenKayitMi } from "./islem";
+import { BLOK_MESAJI, girisSiniri } from "./giris-siniri";
 
 // bcrypt maliyeti: sayı büyüdükçe özetleme yavaşlar ve kırılması zorlaşır.
 const BCRYPT_TUR = 12;
 
 // Giriş hatasında hangi alanın yanlış olduğu bilerek söylenmez.
-const GIRIS_HATASI = "E-posta veya parola hatalı.";
+// Dışarı açıktır: giris.test.ts aynı metni karşılaştırır (Gün 12).
+export const GIRIS_HATASI = "E-posta veya parola hatalı.";
 
 // İşlem sonucu: başarılı ya da kullanıcıya gösterilecek hata.
 export type IslemSonucu = { ok: true } | { ok: false; hata: string };
@@ -151,6 +153,8 @@ async function sahteOzetiAl(): Promise<string> {
 }
 
 // Giriş: e-posta ve parola doğruysa oturum çerezi yazılır.
+// Gün 12 (B1): Aynı e-postaya 15 dakikada en fazla 5 deneme yapılabilir
+// (src/lib/giris-siniri.ts). Deneme, parola kontrolünden ÖNCE sayılır.
 export async function girisYap(
   epostaGirdisi: unknown,
   parolaGirdisi: unknown
@@ -161,6 +165,13 @@ export async function girisYap(
   // Boş ya da biçimi bozuk girdi, makul olmayan uzunluk: tek tip hata.
   if (!eposta.ok || parola.length === 0 || parola.length > 1000) {
     return { ok: false, hata: GIRIS_HATASI };
+  }
+
+  // Deneme sınırı. Bu adımda await yoktur: aynı anda gelen istekler sırayla sayılır.
+  // Sınır aşıldıysa veritabanına ve bcrypt'e hiç gidilmez. Sayaç e-postanın kayıtlı
+  // olup olmadığına bakmadığı için bu cevap da e-postanın varlığını ele vermez.
+  if (!girisSiniri.denemeyiKaydet(eposta.deger).izin) {
+    return { ok: false, hata: BLOK_MESAJI };
   }
 
   const kullanici = await prisma.user.findUnique({
@@ -176,6 +187,8 @@ export async function girisYap(
     return { ok: false, hata: GIRIS_HATASI };
   }
 
+  // Başarılı giriş: bu e-postanın deneme sayacı silinir.
+  girisSiniri.basarili(eposta.deger);
   await oturumCerezineYaz(kullanici.id);
   return { ok: true };
 }
