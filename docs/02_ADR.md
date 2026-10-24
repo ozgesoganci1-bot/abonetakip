@@ -44,7 +44,7 @@
 - **Render ücretsiz web servisi (2026 kaynaklarına göre, Render dokümantasyonundan doğrulanmalı):** 15 dakika trafik almazsa uyur, ilk istek yaklaşık 1 dakika sürebilir. Sunum öncesi siteyi önceden açıp ısıt.
 - **Neon ücretsiz veritabanı (2026 kaynaklarına göre, Neon dokümantasyonundan doğrulanmalı):** Süresizdir ama 5 dakika kullanılmazsa işlemcisi uyur, uyandıktan sonraki ilk sorgu yavaş olabilir. Depolama sınırı küçüktür (0,5-1 GB), bu proje için yeterlidir.
 - **İki ayrı sağlayıcı:** Web uygulaması Render'da, veritabanı Neon'dadır. İki hesap ve iki ayrı panel yönetilir. Bağlantı adresi yalnızca ortam değişkeninde (`DATABASE_URL`) tutulur, Render ve yerel `.env` içinde ayrı ayrı tanımlanır.
-- **Herkese açık depo:** Sızan bir secret herkes tarafından görülebilir. Her commit öncesi `.env` kontrolü yapılır, Gün 12'de repo ve geçmiş taranır.
+- **Herkese açık depo:** Sızan bir secret herkes tarafından görülebilir. Her commit öncesi `.env` kontrolü yapılır, Gün 12'de repo ve geçmiş tarandı; sonuç "Gün 12 kararları" bölümünde (Secret taraması).
 - **Kiracı izolasyonu kodun sorumluluğundadır** (3. hafta, slayt 23 ve 24). Bu yüzden merkezi filtre, iki firmalı test ve güvenlik gözden geçirmesi planlandı.
 - **Hesaplama doğruluğu:** Metrikler dersteki basitleştirilmiş formüllerdir. Kâr marjı ve indirimler dahil değildir.
 - **AI çıktısı doğrulaması:** Üretilen kod okunup anlaşılmadan projeye alınmaz (4. hafta, slayt 30).
@@ -56,6 +56,7 @@
 | [Tarih] | İlk sürüm | Proje başlangıcı |
 | [Tarih] | Veritabanı Render PostgreSQL yerine **Neon PostgreSQL** olarak değiştirildi | Render'ın ücretsiz veritabanı 30 günde sona eriyor, sunum tarihi belirsiz. Neon ücretsiz planı süresiz. Servis modeli (PaaS) ve barındırma kararı değişmedi. |
 | [Tarih] | Depo görünürlüğü herkese açık (public) yapıldı | Erişim kolaylığı. Secret güvenliği kuralları sıkılaştırıldı. |
+| 24 Ekim 2026 | Gün 12 güvenlik gözden geçirmesi: giriş deneme sınırı, firma tablosu kimlik kuralı (issue #24), güvenlik başlıkları, `DATABASE_URL` için `sslmode=verify-full`, `fast-uri` güncellemesi; tetikleyici bilinçli olarak yapılmadı | Dokuz maddelik güvenlik kontrol listesi; ayrıntı ve bilinen sınırlar Gün 12 bölümünde |
 
 ## Gün 2 kararları (veri modeli ve ilk yayın)
 
@@ -990,3 +991,235 @@ temiz. Test dalında elle sınandı (Parça A ve Parça B tabloları).
   kapatılır.
 - Kullanıcılar sayfası hâlâ yer tutucu; finance denemeleri test dalında önceden açılmış finance
   kullanıcılarıyla yapıldı.
+
+## Gün 12 kararları (24 Ekim 2026): güvenlik gözden geçirme
+
+**Durum:** Gözden geçirme tamamlandı; bulgular düzeltildi ya da gerekçesiyle bilinen sınır olarak kapatıldı.
+- PR #40 (squash commit `449afbb`): giriş deneme sınırı (B1). Test dalında elle ve canlıda doğrulandı.
+- PR #41 (squash commit `8ade6c3`, başlık "fix: güvenlik gözden geçirme düzeltmeleri"): firma tablosu
+  kimlik kuralı (B6, issue #24 kapandı), güvenlik başlıkları (B10), `npm audit fix` (B12). Dalda üç ayrı
+  commit vardı. Test dalında elle ve canlıda doğrulandı.
+- B8 yalnızca ortam değişkenlerinde yapıldı (`.env`, `.env.test`, Render); depoda değişiklik yok.
+
+**Sonuç:** `npm test` 105 test, `npm run test:db` 57 test, hepsi geçiyor. `npm run lint` ve
+`npm run build` temiz. `npm audit --omit=dev` 0 açık.
+
+### Yöntem
+
+Gözden geçirme dokuz maddelik kontrol listesiyle yapıldı: kiracı izolasyonu, yetki, kimlik doğrulama,
+girdi doğrulama, secret yönetimi, SSE, hata mesajları, giriş denemesi, bağımlılıklar. Kod depodan okundu;
+uygulamadaki bütün veritabanı sorguları (15 dosya) tek tek incelendi. Önce yalnızca bulgu raporu
+çıkarıldı, düzeltmeler onaydan sonra parça parça yapıldı.
+
+### Bulgu tablosu
+
+| No | Madde | Bulgu | Risk | Karar |
+|---|---|---|---|---|
+| B1 | 8 | Giriş ve kayıtta deneme sınırı yok (Gün 7, G1) | Orta | Düzeltildi: giriş için (K12.1). Kayıt sınırı yok (K12.6) |
+| B2 | 3 | Oturum çerezi çıkışta sunucuda iptal edilmiyor, 7 gün geçerli (Gün 7, G2) | Düşük | Bilinen sınır (K12.6) |
+| B3 | 6 | Çıkış yapılan sekmenin SSE bağlantısı en fazla 15 dakika açık kalabiliyor | Düşük | Bilinen sınır (K12.6) |
+| B4 | 6 | SSE hub tek süreçte, bellekte | Düşük | Bilinen sınır (K12.6) |
+| B5 | 6 | SSE'de toplam bağlantı üst sınırı yok, yalnızca firma başına 20 | Düşük | Bilinen sınır (K12.6) |
+| B6 | 1 | Firma tablosunda başka kimlik istenince sessizce kendi firma dönüyor (issue #24) | Düşük | Düzeltildi (K12.2) |
+| B7 | 1 | Veritabanı düzeyinde "tenantId değiştirilemez" tetikleyicisi yok | Düşük | Bilinçli olarak yapılmadı (K12.7) |
+| B8 | 5 | `pg` sürücüsünün `sslmode` uyarısı (ileride daha zayıf TLS davranışı) | Düşük | Düzeltildi (K12.4) |
+| B9 | 5 | Gün 2 sızıntısı iki eski uzak dalda duruyor (parola yenilenmiş) | Düşük (kalan) | Bilinen sınır (K12.6) |
+| B10 | 3 | Güvenlik başlıkları yok, `X-Powered-By` gönderiliyor | Düşük | Düzeltildi (K12.3) |
+| B11 | 3 | Kayıt formu e-postanın kayıtlı olduğunu söylüyor (Gün 7, G4) | Düşük | Bilinen sınır (K12.6) |
+| B12 | 9 | `fast-uri` 3.0.0–3.1.8 bilinen açık (dolaylı bağımlılık) | Düşük (npm audit: orta) | Düzeltildi (K12.5) |
+
+Bulgu çıkmayan maddeler: yetki (rol kontrolleri sunucuda ve sorgulardan önce), girdi doğrulama (bütün
+sunucu işlemleri `validation.ts` kullanıyor, URL kimlikleri ve sorgu parametreleri beyaz listeyle
+kontrol ediliyor), hata mesajları (`catch` blokları sabit metin logluyor, hata ekranları yalnızca kısa
+kod gösteriyor). Yüksek risk bulgusu çıkmadı.
+
+### Kararlar
+
+**K12.1: Giriş deneme sınırı, e-posta başına (B1)**
+- **Karar:** Yeni `src/lib/giris-siniri.ts`. Aynı e-postaya 15 dakika içinde en fazla 5 deneme; 6.
+  deneme ve sonrası 15 dakika reddedilir. Anahtar küçük harfe çevrilmiş e-postadır. Sayaç bellekte,
+  tek örnek `globalThis` üzerinde (sse-hub.ts ile aynı yöntem). Yeni paket yok.
+- **Sayma sırası:** Deneme, parola kontrolünden ÖNCE ve aynı senkron adımda sayılır. Böylece aynı anda
+  gelen çok sayıda istek, bcrypt beklenirken sınırı aşamaz. Blok sırasında veritabanı sorgusu ve bcrypt
+  hiç çalışmaz (işlemci de korunur). Blok sırasında doğru parola da reddedilir. Başarılı girişte sayaç
+  silinir.
+- **Cevap:** Sayaç e-postanın kayıtlı olup olmadığına bakmaz. Kayıtlı ve kayıtsız e-posta aynı sayıda
+  denemeden sonra aynı mesajı alır ("Çok fazla hatalı deneme yapıldı. Lütfen 15 dakika sonra tekrar
+  deneyin."); cevap e-postanın varlığını ele vermez. Bloktan önceki mesaj değişmedi.
+- **Bellek:** Arka planda zamanlayıcı yok. Süresi dolmuş kayıt, o e-posta yeniden denendiğinde silinir.
+  Liste 10.000 kayda ulaşınca önce süresi dolmuş kayıtlar, gerekirse en eski kayıtlar silinir.
+- **IP başına sınır yok:** Render'ın `X-Forwarded-For` başlığını nasıl yazdığı resmi dokümanda yok;
+  bulunabilen tek bilgi 2021 tarihli bir özellik isteğindeki çalışan cevabı ve istemcinin başlığı
+  sahteleyebildiğine dair bir kullanıcı gözlemi. Canlı yanıtta Cloudflare başlıkları (`server: cloudflare`,
+  `cf-ray`) görüldü, ama Cloudflare'in istemci IP başlıkları da Render dokümanında yok.
+- **Kayıt sınırı yok:** E-posta başına sınır kayıtta anlamsız, IP güvenilir değil. Sunucu geneli bir kayıt
+  sınırı (B seçeneği) gerçek kullanıcıları da durdurabileceği için seçilmedi (bkz. Bilinen sınırlar).
+
+**K12.2: Firma tablosunda kimlik ezilmez, AND ile uygulanır (B6, issue #24)**
+- **Karar:** `src/lib/tenant.ts` içinde yeni `firmaKosulu()`. Firma (Tenant) tablosunda `where` içinde
+  bir `id` verilirse artık oturumdaki firma kimliğiyle ezilmez; ikisi `AND` içinde birlikte uygulanır.
+  Başka firmanın kimliği istenirse sonuç veritabanının doğal "bulunamadı" cevabıdır: okumada `null`,
+  boş liste ya da 0, `...OrThrow` ve `update`'te hata. Eskiden istek sessizce kullanıcının kendi
+  firmasına uygulanıyordu (sızıntı yoktu ama yanıltıcıydı).
+- **Nesne biçimli kimlik:** `{ in: [...] }`, `{ equals: ... }`, `{ not: ... }` de aynı kuralla
+  `AND` içine girer. `{ in: [A, B] }` yalnızca A'yı, `{ not: A }` hiçbir kaydı bulmaz. Koşulda önceden
+  `AND` varsa (tek nesne ya da liste) korunur.
+- **Etkilenmeyen akışlar:** Uygulamadaki dört Firma tablosu çağrısı ya kimlik vermiyor ya da bir satır
+  önce aynı filtreden okunan kendi kimliğini veriyor (`cac-ayari.ts`). Ham `prisma` kullanan iki çağrı
+  (`auth.ts`) filtre dışında. Ayarlar sayfasında CAC kaydetme test dalında elle denendi.
+- **Testler:** `tenant.test.ts` "Firma tablosu" bölümü: eski davranışı belgeleyen test yeni davranışa
+  göre güncellendi; okuma, `...OrThrow`, kendi kimliğiyle güncelleme, nesne biçimli kimlik ve korunan
+  `AND` için testler eklendi.
+
+**K12.3: Güvenlik başlıkları (B10)**
+- **Karar:** `next.config.ts` içinde `headers()` ile bütün yollara (`/:path*`) beş başlık:
+
+| Başlık | Değer |
+|---|---|
+| `X-Frame-Options` | `DENY` |
+| `Content-Security-Policy` | `frame-ancestors 'none'` |
+| `X-Content-Type-Options` | `nosniff` |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` |
+| `Permissions-Policy` | `camera=(), microphone=(), geolocation=()` |
+
+- **`X-Powered-By`:** `poweredByHeader: false` ile kapatıldı.
+- **Tam CSP yok:** CSP'de bilerek yalnızca `frame-ancestors` var. Betik ve bağlantı kuralları Next.js'in
+  satır içi betiklerini ve geliştirme modunun anında yenileme (HMR) bağlantısını bozabilir; nonce gibi ek
+  iş ister. 2 haftalık kapsam için ağır bulundu.
+- **HSTS yok:** Bilerek eklenmedi. Yanlış bir değer geri alınması zor bir tarayıcı kaydı bırakır. Canlı
+  yanıtta Render'ın da `Strict-Transport-Security` göndermediği görüldü.
+- **SSE ve HMR:** Eklenen başlıklar SSE yanıtının kendi `Content-Type` ve `Cache-Control` başlıklarıyla
+  çakışmaz; elle denemede canlı uyarı bandı ve HMR çalıştı.
+- **Test:** Yeni `src/test-destek/guvenlik-basliklari.test.ts` (`npm test`): `next.config.ts`'yi okur,
+  beş başlığı, değerlerini, `poweredByHeader`'ı ve HSTS'in olmadığını denetler.
+
+**K12.4: Veritabanı TLS: `DATABASE_URL` için `sslmode=verify-full` (B8)**
+- **Karar:** `DATABASE_URL` üç yerde (`.env`, `.env.test`, Render ortam değişkenleri) `sslmode=require`
+  yerine `sslmode=verify-full`. `channel_binding=require` değişmedi.
+- **Gerekçe:** Uyarıyı uygulamanın kullandığı `pg` sürücüsü veriyor ve yalnızca `DATABASE_URL`'i
+  kullanıyor (`src/lib/db.ts`). Bugünkü bağlantı zaten bu düzeyde doğrulanıyordu; değişiklik bunu açıkça
+  yazıyor, böylece `pg` 9 sürümünde daha zayıf davranışa düşülmez. Neon dokümanı `verify-full`'u
+  öneriyor; Neon'un sertifikası sistemin ve Node.js'in güvendiği bir kök sertifikaya dayanıyor.
+- **`DIRECT_URL` değişmedi (`sslmode=require`):** Geçişler `DIRECT_URL` ile ve `pg`'den ayrı bir Prisma
+  aracıyla çalışıyor (`prisma.config.ts`). Prisma 7 dokümanı PostgreSQL adresi için yalnızca `prefer`,
+  `disable` ve `require` değerlerini listeliyor. Render build komutu yalnızca `npx prisma generate`;
+  canlıda geçiş çalışmıyor ve `generate` veritabanına bağlanmıyor.
+- **Doğrulama:** Adresler hiçbir komutla ekrana basılmadı; değişiklik `grep -c` ile sayarak ve yedekle
+  `diff` satır sayısı karşılaştırılarak doğrulandı. Kurulu `pg-connection-string` 2.14.1 kodu uyarıyı
+  yalnızca `verify-full` olmayan değerler için veriyor.
+
+**K12.5: Bağımlılık açığı (B12)**
+- **Karar:** `npm audit fix` (`--force` olmadan). Yalnızca `package-lock.json` değişti; `fast-uri`
+  3.1.8 → 3.1.9. `ajv` ve başka hiçbir paketin sürümü değişmedi.
+- **Bağlam:** Yol `prisma > @prisma/dev > @prisma/streams-local > ajv > fast-uri`; Prisma geliştirme
+  aracı, web uygulamasının koduna girmiyor. `npm audit` "orta" dese de bu yüzden düşük derecelendirildi.
+  Düzeltmeden sonra `npm audit --omit=dev` 0 açık.
+- **Bağımlılık listesi:** 6 bağımlılık ve 10 geliştirme bağımlılığının hepsi kodda kullanılıyor ve
+  `package-lock.json` içinde `registry.npmjs.org` adresinden geliyor.
+
+**K12.6: Bilinen sınır olarak kabul edilenler**
+- **B2, oturum iptali:** Çıkış yalnızca tarayıcıdaki çerezi siler; çerezin kopyası 7 gün geçerli kalır.
+  Çerez `httpOnly`, `sameSite: lax`, üretimde `secure`; kodda XSS yolu bulunmadı. Sunucu tarafı iptal
+  (kullanıcıda oturum sürümü sütunu) geçiş dosyası gerektirdiği için yapılmadı.
+- **B3, SSE ve çıkış:** Başka sekmeden çıkış yapılınca açık sekme en fazla 15 dakika daha firmanın
+  uyarılarını (müşteri adı) alır (K10.4). B2'ye bağlı.
+- **B4, SSE tek süreç:** Render'da sunucu sayısı 1'de tutulur (K10.1).
+- **B5, SSE toplam sınır:** Firma başına 20 bağlantı sınırı var, sunucu geneli sınır yok. Kayıt sınırı
+  olmadığı için çok sayıda firma açılıp bağlantı tutulabilir.
+- **B9, eski dallar:** Gün 2 sızıntısı `feat/gun-02-veri-modeli` ve `fix/env-yer-tutucu` uzak dallarında
+  duruyor. Parola yenilendiği için adres bağlantıda kullanılamaz; kalan bilgi eski sunucu adıdır. Geçmişi
+  yeniden yazmak gerekli görülmedi.
+- **B11, kayıtta e-posta varlığı:** E-posta doğrulaması olmadan kapatmak kullanıcıyı şaşırtır. Giriş
+  tarafı bunu gizliyor.
+- **Kayıt sınırı:** K12.1.
+- **Diğer tablolarda `tenantId` ezilmesi:** Customer, Plan, Subscription, SubscriptionEvent ve User
+  tablolarında `where` içine yazılan `tenantId` hâlâ oturumdakiyle ezilir (K12.2'deki kural yalnızca
+  Firma tablosunda). Sızıntı yok; uygulama kodunda `where` içinde `tenantId` hiç geçmiyor (tarandı).
+
+**K12.7: Veritabanı tetikleyicisi bilinçli olarak yapılmadı (B7)**
+- Gün 6'da "Gün 12, `tenantId` değiştirilemez tetikleyicisi" olarak planlanmıştı; Gün 12'de bilinçli
+  olarak yapılmadı ve bilinen sınır olarak kapatıldı.
+- **Gerekçe:** Uygulama içi koruma (`tenant.ts` beyaz listesi, `tenantId` ve `id` güncelleme yasağı,
+  ilişki alanı yasağı) otomatik testlerle doğrulanmış durumda. Abonelik ve olay tabloları ayrıca bileşik
+  anahtarlarla veritabanında korunuyor. Tetikleyici, canlı veritabanına elle yazılmış bir geçiş
+  gerektirir; bunun riski (Prisma'nın sonraki geçişlerde tetikleyiciyi silmeye çalışması, canlıda geri
+  alma) kalan faydadan büyük bulundu.
+- **Sınır:** Müşteri, plan ve kullanıcı tablolarında veritabanı düzeyinde ikinci savunma hattı yok.
+
+### Secret taraması (madde 5)
+
+| Kontrol | Sonuç |
+|---|---|
+| Git geçmişinde adı `.env` içeren dosyalar | Yalnızca `.env.example` ve `.env.test.example` |
+| `.env` ve `.env.test` | `.gitignore` içindeki `.env*` kuralıyla yok sayılıyor |
+| GitHub "Go to file" ile `.env` araması | Yalnızca iki örnek dosya |
+| Mevcut dosyalarda parola ve Neon sunucu adı taraması | Boş ve 0 |
+| Git geçmişinde parola ve sunucu adı taraması | Yalnızca iki eski uzak dalda (B9); bugünkü canlı ve test parolaları geçmişte hiç geçmiyor |
+| `main` dalı | Temiz |
+
+### Önceki kayıtların durumu
+
+| Kayıt | Durum |
+|---|---|
+| Gün 6, "İleride: Gün 12, tenantId değiştirilemez tetikleyicisi" | Bilinçli olarak yapılmadı (K12.7) |
+| Gün 6, "İleride: SSL modu" | Kapandı (K12.4) |
+| Gün 6, "Açık 2" ve issue #24 (Gün 9 ve 11 notları dahil) | Kapandı (K12.2) |
+| Gün 7, G1 "Girişte deneme sınırı yok, Gün 12'ye ertelendi" | Kapandı (K12.1) |
+| Gün 7, G2 ve G4 | Bilinen sınır olarak kaldı (K12.6, B2 ve B11) |
+| Gün 4 ve 11, "pg sslmode uyarısı, Gün 12'de ele alınacak" | Kapandı (K12.4) |
+
+### Test kapsamı
+
+| Dosya | Komut | Ne denetler |
+|---|---|---|
+| `src/lib/giris-siniri.test.ts` (yeni) | `npm test` | 5 deneme ve blok, blok süresi, blokun uzamaması, pencerenin sıfırlanması, başarılı girişin sayacı silmesi, blok sırasında başarının bloğu kaldırmaması, e-postaların birbirinden ayrı olması, büyük/küçük harf, bellek temizliği ve üst sınır |
+| `src/lib/giris.test.ts` (yeni) | `npm run test:db` | Kayıtlı ve kayıtsız e-postaya her denemede aynı cevap, 6. denemede blok mesajı, büyük harfle yazılan e-postanın aynı blokta kalması |
+| `src/lib/tenant.test.ts` (güncellendi) | `npm run test:db` | K12.2 |
+| `src/test-destek/guvenlik-basliklari.test.ts` (yeni) | `npm test` | K12.3 |
+
+`giris.test.ts` başlamadan önce `canli-koruma.ts` ile test dalında olduğunu denetler.
+
+### Elle test
+
+| Durum | Ortam | Sonuç |
+|---|---|---|
+| Aynı e-postaya 5 yanlış, 6. deneme | Test dalı ve canlı | 5 kez "E-posta veya parola hatalı.", 6.'da blok mesajı |
+| Blok sırasında doğru parola, büyük harfle e-posta | Test dalı | Blok mesajı |
+| Kayıtsız e-postayla aynı deneme | Test dalı | Mesajlar ve sıraları aynı |
+| Sunucu yeniden başlatılınca doğru parola | Test dalı | Giriş yapıldı (sayaç bellekte) |
+| `/giris` ve `/api/events` (oturumsuz) başlıkları, `curl` | Yerel | Beş başlık var, `X-Powered-By` yok; `/api/events` 401 |
+| `/giris` başlıkları, `curl` | Canlı | Beş başlık var, `X-Powered-By` yok, HSTS yok, 200 |
+| Ayarlar'da CAC kaydetme | Test dalı | Kaydedildi, sayfa yenilenince değer kaldı, LTV/CAC hesaplandı |
+| Abonelik iptali ve canlı uyarı bandı | Test dalı | Bant geldi (SSE çalışıyor) |
+| Dosya kaydedince sayfanın yenilenmesi | Test dalı | Çalıştı (HMR) |
+| `npm run test:db` sonrası `SECURITY WARNING` sayısı | Test dalı | 0 |
+| `npm run dev:test` ve `npm run dev` ile giriş ve Dashboard | Test dalı ve canlı veritabanı (yalnızca okuma) | `SECURITY WARNING` yok |
+| B8 sonrası Render günlüğü ve canlı site | Canlı | `SECURITY WARNING` yok, `/giris` 200 |
+
+`npm run dev:test`'te uyarının çıkmaması, uygulamanın `.env.test` adresini (test dalını) kullandığını da
+gösterdi: o sırada canlı `.env` hâlâ `sslmode=require` içeriyordu ve kullanılsaydı uyarı çıkardı.
+
+### Bilinen sınırlar
+- Giriş sayacı tek Render sürecinin belleğinde: sunucu yeniden başlarsa sıfırlanır, ikinci bir sunucu
+  açılırsa her biri ayrı sayar.
+- Başkası bir kullanıcının e-postasıyla 6 yanlış deneme yaparsa o kullanıcı 15 dakika giriş yapamaz.
+- IP başına giriş sınırı ve kayıt sınırı yok (K12.1). Biri sürekli yeni e-postalarla bcrypt'i
+  çalıştırabilir.
+- Tam CSP ve HSTS yok (K12.3).
+- `DIRECT_URL` `sslmode=require` ile kalıyor (K12.4).
+- K12.6 ve K12.7'deki kabul edilen sınırlar.
+- Terminaldeki `MODULE_TYPELESS_PACKAGE_JSON` uyarısına (`dev-test.ts`) dokunulmadı; `package.json`'a
+  `"type": "module"` eklemek Next.js'in davranışını etkileyebilir.
+
+### Süreç notları
+- Gözden geçirme önce yalnızca rapor olarak yapıldı; her parça için plan, onay, sonra tek tek adımlar.
+- `package.json`'da yalnızca test satırlarına dosya adı eklendi (`perl` ile, `git diff` ile
+  doğrulandı). B12'de `package.json` değişseydi durulacaktı; değişmedi.
+- Terminal'de Cmd+F araması ekranın bütün geçmişini taradığı için iki kez yanıltıcı sonuç verdi (eski bir
+  uyarı satırı ve `Content-Security-Policy` satırı). Uyarı kontrolleri bundan sonra çıktıyı
+  `grep -c "SECURITY WARNING"` ile sayarak ya da ekran Cmd+K ile temizlendikten sonra yapıldı.
+- Uzun bir test dosyasının yapıştırmada kesildiğinden şüphelenildi; commit'teki dosya `git show` ile
+  kontrol edildi ve tam çıktı. `wc -l` 454/455 farkı dosya sonundaki satır sonu karakterinden.
+- Canlı `curl` denemesinde adres yapıştırılırken bozuldu; Render servis adı bir değişkene konarak
+  çözüldü. Render adresi bu belgede yazılmaz.
+- Commit ekleri: Claude Opus 5.5.
