@@ -935,6 +935,7 @@ temiz. Test dalında elle sınandı (Parça A ve Parça B tabloları).
   çağrılan sayfalar 404 ekranını gösterir ama yanıt kodu 200'dür. Var olmayan kayıt ile başka
   firmanın kaydı **aynı kodu ve aynı ekranı** aldığı için kaydın varlığı sızmaz. Panel sayfaları
   giriş gerektirdiği için arama motorlarına açık değildir.
+- **Canlı doğrulama (Render, `e81971b`):** `/olmayan-sayfa` 404, oturum açıkken `/musteriler/abc` 200 döndü. Sonuçlar geliştirme ölçümüyle aynıdır.
 - **Değerlendirilen:** `loading.tsx`'i yalnızca Dashboard ve Abonelikler'e koymak (detay
   sayfaları 404 kalırdı). Tutarlı yüklenme ekranı tercih edildi; sınır kabul edildi.
 

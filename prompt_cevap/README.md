@@ -20,6 +20,7 @@ Bu klasör, AboneTakip projesini geliştirirken yapay zekâya yazdığım prompt
 | 8 | Metrik hesaplama fonksiyonları | [gun_8_prompt_cevap.md](gun_8_prompt_cevap.md) |
 | 9 | KPI dashboard ve CAC ayarı | [gun_9_prompt_cevap.md](gun_9_prompt_cevap.md) |
 | 10 | SSE ile iptal uyarısı ve riskli abonelik listesi | [gun_10_prompt_cevap.md](gun_10_prompt_cevap.md) |
+| 11 | Aylık MRR grafiği, boş durum ve hata ekranları | [gun_11_prompt_cevap.md](gun_11_prompt_cevap.md) |
 
 Sonraki günler çalışma ilerledikçe bu klasöre eklenecektir.
 
