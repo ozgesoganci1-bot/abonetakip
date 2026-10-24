@@ -11,12 +11,15 @@ import BosDurum from "@/components/ui/BosDurum";
 import Kart from "@/components/ui/Kart";
 import Rozet from "@/components/ui/Rozet";
 import KpiKarti from "./KpiKarti";
+import MrrGrafigi from "./MrrGrafigi";
 
 // KPI DASHBOARD (Gün 9)
 // Bu sayfada hesap YOKTUR. Sayılar dashboard-verisi.ts -> metrikler.ts zincirinden gelir,
 // burada yalnızca biçimlenir ve yerleştirilir.
 // manager ve finance ikisi de görür. Fark: CAC girilmemişse yalnızca manager'a
 // Ayarlar bağlantısı gösterilir (CAC'yi yalnızca manager değiştirebilir).
+// Gün 11: KPI kartlarının altına aylık MRR grafiği eklendi (MrrGrafigi.tsx).
+// Grafiğin son noktası MRR kartıyla aynı veriden ve aynı andan hesaplanır.
 
 const linkSinifi =
   "font-medium text-indigo-700 underline underline-offset-2 hover:text-indigo-900";
@@ -138,6 +141,8 @@ export default async function DashboardSayfasi() {
           aciklama="Müşteri kazanmak için harcanan her 1 TL'nin kaç TL geri döndüğü."
         />
       </div>
+
+      <MrrGrafigi noktalar={veri.mrrGecmisi} />
 
       <Kart className="mt-4">
         <h2 className="text-sm font-medium text-slate-600">Müşteri özeti</h2>

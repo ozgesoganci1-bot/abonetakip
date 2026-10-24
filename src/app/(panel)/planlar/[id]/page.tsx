@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { getTenantDb } from "@/lib/tenant";
 import { kimlikDogrula } from "@/lib/validation";
-import { aktifAbonelikVarMi } from "@/lib/abonelik-kontrol";
+import { abonelikVarMi } from "@/lib/abonelik-kontrol";
 import SayfaBasligi from "@/components/ui/SayfaBasligi";
 import Rozet from "@/components/ui/Rozet";
 import PlanFormu from "../PlanFormu";
@@ -28,8 +28,8 @@ export default async function PlanDuzenleSayfasi({ params }: SayfaProps) {
   });
   if (!plan) notFound();
 
-  // Aktif abonelik varsa fiyat ve aralık alanları salt okunur gösterilir.
-  const kilitli = await aktifAbonelikVarMi({ planId: plan.id });
+  // Plana bağlı abonelik varsa (iptal edilmişler dahil) fiyat ve aralık salt okunur gösterilir.
+  const kilitli = await abonelikVarMi({ planId: plan.id }, db);
   const yonetici = kullanici.role === "manager";
 
   return (

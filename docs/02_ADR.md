@@ -777,3 +777,113 @@ Pencereler: A manager (Chrome), A finance (Chrome gizli), B manager (Safari), B 
   (c) riskli abonelikler ve dashboard kartı, (d) bu ADR bölümü. Her commit öncesi üç tarama ve testler çalıştırıldı.
 - Elle test yalnızca `npm run dev:test` ile Neon test dalında yapıldı; `npm run dev` kullanılmadı.
 - Commit (a) trailer'ı Claude Opus 5.5, sonraki commit'ler Claude Sonnet 5.5 (sohbette model değişti).
+
+## Gün 11 kararları (24 Ekim 2026): aylık MRR grafiği (Parça A)
+
+**Durum:** Parça A kodu tamamlandı (dal: `gun11a-mrr-grafigi`). Gün 11 iki parçaya
+bölündü (K11.6). Parça B (boş durum, hata ve yüklenme ekranları, form mesajları) ayrı dal
+ve PR ile gelecek.
+**Sonuç:** `npm test`, `npm run test:db`, `npm run lint`, `npm run build` temiz. Grafik test
+dalında üç sahte firmayla elle sınandı (aşağıda).
+
+### Kararlar
+
+**K11.1: Plan fiyatı ve aralığı, plana bağlı HERHANGİ bir abonelik varsa kilitlenir (D1 kapandı)**
+- **Durum öncesi:** Abonelikte fiyat kopyası yoktur; geçmiş MRR planın bugünkü fiyatıyla
+  hesaplanır (Gün 8, D1). Gün 8'deki kilit yalnızca **aktif** abonelik içindi. Bütün
+  abonelikleri iptal edilmiş bir planın fiyatı değiştirilebiliyordu; o abonelikler geçmişte
+  aktif olduğu için grafikte o aylar da değişirdi.
+- **Değerlendirilen seçenekler:**
+  - A. Abonelikte fiyat ve aralık kopyası (şema değişikliği ve migration): geçmiş her zaman
+    doğru, ama 2 haftalık projede şema değişikliği riski ve kapsamı büyük.
+  - B. Kilidi genişletmek (seçildi): aboneliği olan (iptal edilmişler dahil) planın fiyatı ve
+    aralığı değiştirilemez. Fiyat değişikliği = yeni plan oluşturup eskisini pasife almak.
+  - C. Kabul edip grafiğe not düşmek: grafik yanlış bilgi gösterebilir.
+- **Gerekçe:** B şema değişikliği gerektirmez, geçmişi korur ve "kayıt silinmez, pasife
+  alınır" kuralıyla uyumludur.
+- **Uygulama:** `abonelik-kontrol.ts` içine `abonelikVarMi` eklendi (durum filtresi yok).
+  `planGuncelle` (sunucu, asıl engel) ve plan detay sayfası (salt okunur alanlar) bu
+  fonksiyonu kullanır. `aktifAbonelikVarMi` değişmedi; pasife almada doğru kural
+  "aktif abonelik"tir. Ad değişikliği serbest.
+- **Bilinen sınır:** Bu karardan önce yalnızca iptal edilmiş aboneliği olan bir planın fiyatı
+  değiştirildiyse ilgili geçmiş aylar zaten etkilenmiş olabilir. Fiyat geçmişi tutulmadığı
+  için geriye dönük tespit edilemez. Kontrol ile güncelleme iki adım olduğundan pasife
+  almadaki "aynı anda gelen istek" penceresi burada da vardır (ham SQL yasağı, kabul edildi).
+
+**K11.2: MRR kartı değiştirilmedi; grafiğin son noktasıyla eşitliği testle sabitlendi**
+- **Fark:** Kart (`mrrHesapla`) `status = ACTIVE` olanları toplar. Grafik (`tarihtekiMrr`)
+  `startedAt` ve `canceledAt` tarihlerine bakar.
+- **Neden eşit:** Uygulamada `startedAt` başlatma anında sunucu saatiyle yazılır (gelecek
+  tarih mümkün değil). İptalde `status` ve `canceledAt` aynı güncellemede yazılır.
+- **Karar:** Kart, Gün 9 davranışını (ARPU ve aktif müşteri ile aynı kural) korumak için
+  değiştirilmedi. `dashboard-verisi.ts` kart ve grafiği aynı abonelik listesi ve aynı
+  `simdi` ile hesaplar. Eşitlik `metrikler.test.ts` (Gün 11 senaryosu) ve
+  `dashboard-verisi.test.ts` içinde testle sabitlendi.
+- **Dikkat:** Veritabanına uygulama dışından (elle SQL) `status` ile `canceledAt` birbirinden
+  bağımsız yazılırsa eşitlik bozulabilir.
+
+**K11.3: Ay sınırı için yeni fonksiyon yazılmadı; yalnızca `sonAylar` eklendi**
+- Ay sınırı anları (`ayAraligi`, `ayinSonAni`) ve geçmiş MRR (`mrrGecmisi`) Gün 8'de yazılmış
+  ve testliydi; aynen kullanıldı.
+- `sonAylar(simdi, adet)` yeni: `turkiyeAyi` yalnızca bulunulan ayı verir; Ocak'tan önceki
+  yılın Aralık ayına geçen bir liste yoktu. Her ay tek sıra numarasına çevrilip geriye
+  sayılır, yıl geçişi ayrıca ele alınmaz. Testleri: yıl geçişi, gece 00:30 (TR), adet 1 ve 0.
+
+**K11.4: Grafik paketsiz, sunucuda çizilen SVG (Server Component)**
+- **Gerekçe:** 12 çubuk ve iki eksen için paket gerekmez; tarayıcıya JavaScript gitmez; hesap
+  sunucuda kalır. Paket gerekseydi Recharts düşünülürdü, ama istemcide çalıştığı için
+  önerilmedi.
+- **Yapı:** Hesap gerektiren parçalar test edilebilsin diye `src/lib/mrr-grafigi.ts`
+  içindedir (eksen üst sınırı: 1, 2, 2,5, 5, 10 katları, en az 100; özet cümle). Bileşen
+  (`dashboard/MrrGrafigi.tsx`) yalnızca çizer.
+- **Erişilebilirlik:** Her ayın SVG `<title>` etiketi fareyle değeri gösterir (MRR 0 olan
+  ayda da). Ekran okuyucu grafiği özet cümleyle okur. Değerler açılır tabloda da verilir.
+  "Bu ay" renkle birlikte eksen altındaki yazıyla belirtilir. Dar ekranda grafik yana
+  kaydırılır.
+- **Biçim:** Alt eksende kısa ay (`kisaAyEtiketi`: "Eki 26"); yıl `Intl`'e bırakılmadı,
+  elle iki hane yazılır. İpucu, tablo ve özet cümlede uzun ay adı kullanılır. Özet cümlede
+  ekler yalnızca "TL"ye gelir (ay adlarında ek uyumu yıla göre değişir).
+
+**K11.5: Geçmiş tarihli demo verisi (`demo:gecmis`) ve ortak yardımcı**
+- `donemleriIlerlet`, `demo-verisi.ts`'ten `src/test-destek/donem-ilerlet.ts`'e taşındı
+  (içe aktarılınca betik çalıştığı için). `demo:veri`'nin davranışının değişmediği yeni
+  bir test firmasında denendi: çıktı ve dashboard aynı, ikinci çalıştırma reddedildi.
+- `demo:gecmis` aynı güvenceleri taşır (canlı koruması veritabanı yüklenmeden önce, var
+  olan firmaya yazma, aboneliği olan firmada durma, tek işlem, tenant filtresi). Tarihler
+  çalıştırıldığı aya göre kayar. Beklenen değerler kodla değil, elle hesaplanmış sabit
+  listeyle ekrana yazılır.
+
+**K11.6: Gün 11 iki PR'a bölündü**
+- Parça A: grafik ve geçmiş MRR hesabı (bu bölüm). Parça B: boş durum, hata sayfaları
+  (404, genel hata, yetkisiz), yüklenme ekranları ve form mesajları.
+- **Gerekçe:** Küçük ve gözden geçirilebilir PR'lar; grafik ile hata ekranları birbirine
+  bağlı değil.
+
+### Elle sınama (test dalı)
+
+| Durum | Sonuç |
+|---|---|
+| Kilit: yalnızca iptal edilmiş aboneliği olan plan | Fiyat ve aralık salt okunur, ad değiştirilebilir |
+| Kilit: aboneliği olmayan yeni plan | Fiyat değiştirilebilir |
+| Gün 9 demo firması | Eylül 2.500 TL, Ekim (bu ay) 1.000 TL = MRR kartı |
+| Geçmiş MRR firması (`demo:gecmis`) | 12 ay elle hesaplanan listeyle aynı; Mayıs 2026 = 4.583 TL; Ekim 2.083 TL = MRR kartı |
+| 12 aydan eski veri, yıllık plan, ay içinde iptal, ay sınırları | Beklenen aylara düştü (Nisan'da D yok, Ağustos'ta E var) |
+| Kiracı ayrımı | Bir firmanın grafiğinde diğer firmanın verisi görünmedi |
+| İpucu | MRR 0 olan ayda da değer gösterdi |
+| Canlı koruması | `.env.test` olmadan betik veritabanına bağlanmadan durdu |
+
+**Elle hesap (Mayıs 2026):** 1.000 + 1.000 + 500 + 1.000/12 + 2.000 = 4.583,33 → 4.583 TL.
+
+### Bilinen sınırlar
+- K11.1'deki geriye dönük fiyat değişikliği sınırı.
+- `dashboard-verisi.test.ts` MRR geçmişi testinde "şimdi" 1 dakika ileri alınır (saat farkı
+  için). Test ayın son dakikasında çalışırsa kalabilir; yeniden çalıştırmak yeterli.
+- Grafik her zaman son 12 ayı gösterir; dönem seçimi kapsam dışıdır.
+- Terminaldeki modül türü ve SSL modu uyarıları önceki günlerden beri vardır; bu dalda
+  dokunulmadı.
+
+### Parça B için notlar
+- Dashboard'un boş durumu Gün 9'da vardır; grafik hiç abonelik olmayan firmada çizilmez.
+- Plan detay sayfası ve abonelik işlemleri "bulunamadı" için zaten `notFound()` ve
+  `MESAJ.bulunamadi` kullanıyor; Parça B bunları ortak 404 ve mesaj bileşenleriyle
+  tutarlı hâle getirecek.

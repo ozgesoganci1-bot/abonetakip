@@ -2,9 +2,15 @@
 
 // PLAN SUNUCU İŞLEMLERİ: ekleme, düzenleme, pasife alma.
 // Kurallar müşteri işlemleriyle aynıdır (bkz. musteriler/actions.ts).
-// Ek kural: aktif aboneliği olan planın fiyatı ve aralığı değiştirilemez,
-// çünkü MRR planın ŞU ANKİ fiyatından hesaplanır. Fiyat değişirse geçmiş
-// ve bugünkü MRR bir anda değişir. Ad değişikliği serbesttir.
+//
+// Ek kural: plana bağlı HERHANGİ bir abonelik varsa (iptal edilmişler dahil)
+// fiyat ve aralık değiştirilemez. Ad değişikliği serbesttir.
+// Neden? Abonelikte fiyat kopyası yoktur. MRR ve aylık MRR grafiği planın ŞU ANKİ
+// fiyatından hesaplanır. Fiyat değişirse bugünkü MRR ile birlikte o planın
+// abonelerinin aktif olduğu GEÇMİŞ aylar da değişir. Gün 8'de kilit yalnızca aktif
+// abonelik içindi; iptal edilmiş abonelikler de geçmiş aylara girdiği için Gün 11'de
+// genişletildi (docs/02_ADR.md, K11.1). Fiyat değişikliği için yeni plan oluşturulur,
+// eskisi pasife alınır.
 //
 // Gün 6: Pasife alma işleminin mantığı ve rol kontrolü src/lib/pasife-alma.ts
 // dosyasına taşındı (otomatik test edilebilsin diye).
@@ -13,12 +19,12 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth";
 import { getTenantDb } from "@/lib/tenant";
 import { kimlikDogrula, planGirdisiniDogrula } from "@/lib/validation";
-import { aktifAbonelikVarMi } from "@/lib/abonelik-kontrol";
+import { abonelikVarMi } from "@/lib/abonelik-kontrol";
 import { planPasifeAlCekirdek } from "@/lib/pasife-alma";
 import { MESAJ, formMetni, type FormDurumu } from "@/lib/islem";
 
 const KILITLI_MESAJ =
-  "Bu planın aktif abonelikleri var. Fiyat ve aralık değiştirilemez, yalnızca ad değiştirilebilir.";
+  "Bu plana bağlı abonelikler var (iptal edilmişler dahil). Fiyat ve aralık değiştirilemez, yalnızca ad değiştirilebilir. Yeni fiyat için yeni bir plan oluşturun ve bu planı pasife alın.";
 
 // Formdan gelen ham değerler. Hata olursa form bu değerlerle yeniden doldurulur.
 function formDegerleri(formData: FormData) {
@@ -101,12 +107,13 @@ export async function planGuncelle(
     return { durum: "hata", mesaj: MESAJ.bulunamadi, degerler };
   }
 
-  // Fiyat veya aralık değişiyorsa aktif abonelik kontrolü yapılır.
+  // Fiyat veya aralık değişiyorsa plana bağlı abonelik kontrolü yapılır
+  // (iptal edilmişler dahil; bkz. dosya başı ve abonelik-kontrol.ts).
   const fiyatVeyaAralikDegisti =
     mevcut.price !== fiyat || mevcut.interval !== aralik;
   if (
     fiyatVeyaAralikDegisti &&
-    (await aktifAbonelikVarMi({ planId: kimlik.deger }))
+    (await abonelikVarMi({ planId: kimlik.deger }, db))
   ) {
     return { durum: "hata", mesaj: KILITLI_MESAJ, degerler };
   }

@@ -19,11 +19,14 @@
 //    rakamlar karışmaz ve betik aynı firmada iki kez çalıştırılamaz.
 // 5. Bütün kayıtlar tek işlemde (transaction) yazılır: ya hepsi ya hiçbiri.
 // 6. Ekrana hiçbir adres veya kişisel bilgi yazılmaz.
+//
+// Gün 11: donemleriIlerlet, gecmis-mrr-verisi.ts ile ortak kullanılsın diye
+// donem-ilerlet.ts dosyasına taşındı. Bu betiğin davranışı değişmedi.
 
 import { testDaliKontrolu } from "./canli-koruma.ts";
 import { epostaDogrula } from "../lib/validation.ts";
 import { ayAraligi, turkiyeAyi } from "../lib/metrikler.ts";
-import { donemSonu, type Aralik } from "../lib/donem.ts";
+import { donemleriIlerlet } from "./donem-ilerlet.ts";
 
 const DAKIKA = 60 * 1000;
 const GUN = 24 * 60 * DAKIKA;
@@ -44,18 +47,6 @@ if (!eposta.ok) {
 // Kontroller geçildikten SONRA veritabanı modülleri yüklenir.
 const { kullanicininFirmaKimligi, baglantiyiKapat } = await import("./veri.ts");
 const { tenantaBagliDb } = await import("../lib/tenant.ts");
-
-// Başlangıçtan sınıra kadar dönem dönem ilerler (uygulamadaki yenileme kuralıyla).
-// Sınırdan önce dolan her dönem bir yenilemedir (RENEWED olayı).
-function donemleriIlerlet(baslangic: Date, aralik: Aralik, sinir: Date) {
-  const yenilemeler: Date[] = [];
-  let bitis = donemSonu(baslangic, aralik);
-  while (bitis.getTime() <= sinir.getTime()) {
-    yenilemeler.push(bitis);
-    bitis = donemSonu(bitis, aralik);
-  }
-  return { yenilemeler, currentPeriodEnd: bitis };
-}
 
 async function calistir(): Promise<number> {
   if (!eposta.ok) return 1;

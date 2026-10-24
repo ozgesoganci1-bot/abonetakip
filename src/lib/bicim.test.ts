@@ -5,7 +5,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { tlMetni, yuzdeMetni, sayiMetni, ayEtiketi } from "./bicim.ts";
+import { tlMetni, yuzdeMetni, sayiMetni, ayEtiketi, kisaAyEtiketi } from "./bicim.ts";
 
 test("tlMetni: binlik ayıracı nokta, kuruş yok", () => {
   assert.equal(tlMetni(1500), "1.500 TL");
@@ -31,4 +31,12 @@ test("sayiMetni: en fazla 2 ondalık, gereksiz sıfır yok", () => {
 test("ayEtiketi: Türkçe ay adı ve yıl", () => {
   assert.equal(ayEtiketi(2026, 10), "Ekim 2026");
   assert.equal(ayEtiketi(2027, 1), "Ocak 2027");
+});
+
+test("kisaAyEtiketi (Gün 11): kısa Türkçe ay adı ve yılın son iki hanesi", () => {
+  assert.equal(kisaAyEtiketi(2026, 10), "Eki 26");
+  assert.equal(kisaAyEtiketi(2025, 11), "Kas 25");
+  assert.equal(kisaAyEtiketi(2027, 1), "Oca 27");
+  assert.equal(kisaAyEtiketi(2026, 5), "May 26");
+  assert.equal(kisaAyEtiketi(2026, 8), "Ağu 26");
 });
