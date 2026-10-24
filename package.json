@@ -10,7 +10,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --import ./src/test-destek/kancalar.mjs --test src/lib/donem.test.ts src/lib/yetki.test.ts src/lib/session.test.ts src/test-destek/kurallar.test.ts src/lib/metrikler.test.ts src/lib/validation.test.ts src/lib/bicim.test.ts src/test-destek/canli-koruma.test.ts src/lib/sse-hub.test.ts src/lib/riskli-etiket.test.ts src/lib/mrr-grafigi.test.ts src/lib/giris-siniri.test.ts",
+    "test": "node --import ./src/test-destek/kancalar.mjs --test src/lib/donem.test.ts src/lib/yetki.test.ts src/lib/session.test.ts src/test-destek/kurallar.test.ts src/lib/metrikler.test.ts src/lib/validation.test.ts src/lib/bicim.test.ts src/test-destek/canli-koruma.test.ts src/lib/sse-hub.test.ts src/lib/riskli-etiket.test.ts src/lib/mrr-grafigi.test.ts src/lib/giris-siniri.test.ts src/test-destek/guvenlik-basliklari.test.ts",
     "test:db": "node --env-file=.env.test --import ./src/test-destek/kancalar.mjs --test --test-concurrency=1 src/test-destek/duman.test.ts src/lib/tenant.test.ts src/lib/pasife-alma.test.ts src/lib/cac-ayari.test.ts src/lib/dashboard-verisi.test.ts src/lib/riskli-abonelikler.test.ts src/lib/giris.test.ts"
   },
   "dependencies": {
