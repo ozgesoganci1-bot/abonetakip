@@ -349,3 +349,43 @@ export function cacDogrula(girdi: unknown): Sonuc<number> {
       };
   }
 }
+
+
+// ---------- Kullanıcı ekleme (Gün 14) ----------
+
+// Kullanıcı ekleme formundan gelen temizlenmiş değerler.
+// Rol burada YOKTUR: eklenen kullanıcı her zaman finance olur ve rolü sunucu yazar
+// (src/lib/kullanici-yonetimi.ts). Formdan rol okunmaz.
+export type KullaniciGirdisi = {
+  adSoyad: string;
+  eposta: string;
+  parola: string;
+};
+
+// Kullanıcı ekleme formunun tamamını kontrol eder.
+// Kurallar kayıt formuyla aynıdır: ad soyad 2-100 karakter; e-posta kırpılır ve
+// küçük harfe çevrilir; parola en az 8 karakter, en çok 72 bayttır ve kırpılmaz.
+// Kayıt formundan farkı: ilk hatada durmaz, müşteri formu gibi bütün alanların
+// hatasını birlikte döner. Hata mesajlarında girilen değer (özellikle parola) geçmez.
+export function kullaniciGirdisiniDogrula(girdi: {
+  adSoyad: unknown;
+  eposta: unknown;
+  parola: unknown;
+}): AlanSonucu<KullaniciGirdisi, "adSoyad" | "eposta" | "parola"> {
+  const ad = metinDogrula(girdi.adSoyad, "Ad soyad", 2, 100);
+  const eposta = epostaDogrula(girdi.eposta);
+  const parola = parolaDogrula(girdi.parola);
+
+  if (ad.ok && eposta.ok && parola.ok) {
+    return {
+      ok: true,
+      deger: { adSoyad: ad.deger, eposta: eposta.deger, parola: parola.deger },
+    };
+  }
+
+  const alanHatalari: Partial<Record<"adSoyad" | "eposta" | "parola", string>> = {};
+  if (!ad.ok) alanHatalari.adSoyad = ad.hata;
+  if (!eposta.ok) alanHatalari.eposta = eposta.hata;
+  if (!parola.ok) alanHatalari.parola = parola.hata;
+  return { ok: false, alanHatalari };
+}

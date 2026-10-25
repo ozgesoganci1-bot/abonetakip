@@ -1,11 +1,18 @@
-// EKRAN BİÇİMLENDİRME BİRİM TESTİ (Gün 9)
+// EKRAN BİÇİMLENDİRME BİRİM TESTİ (Gün 9, Gün 14'te genişletildi)
 //
 // Çalıştırmak için: npm test
 // Dashboard'da görünecek metinlerin elle test senaryosuyla birebir aynı olduğunu kilitler.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { tlMetni, yuzdeMetni, sayiMetni, ayEtiketi, kisaAyEtiketi } from "./bicim.ts";
+import {
+  tlMetni,
+  yuzdeMetni,
+  sayiMetni,
+  ayEtiketi,
+  kisaAyEtiketi,
+  tarihMetni,
+} from "./bicim.ts";
 
 test("tlMetni: binlik ayıracı nokta, kuruş yok", () => {
   assert.equal(tlMetni(1500), "1.500 TL");
@@ -39,4 +46,13 @@ test("kisaAyEtiketi (Gün 11): kısa Türkçe ay adı ve yılın son iki hanesi"
   assert.equal(kisaAyEtiketi(2027, 1), "Oca 27");
   assert.equal(kisaAyEtiketi(2026, 5), "May 26");
   assert.equal(kisaAyEtiketi(2026, 8), "Ağu 26");
+});
+
+test("tarihMetni (Gün 14): Türkiye saatiyle gün, ay adı ve yıl", () => {
+  assert.equal(tarihMetni(new Date("2026-10-25T09:00:00Z")), "25 Ekim 2026");
+  // UTC'de hâlâ 24 Ekim 22.30, Türkiye'de 25 Ekim 01.30: Türkiye tarihi gösterilir.
+  assert.equal(tarihMetni(new Date("2026-10-24T22:30:00Z")), "25 Ekim 2026");
+  // Yıl sınırı: UTC'de 31 Aralık 21.30, Türkiye'de 1 Ocak 00.30.
+  assert.equal(tarihMetni(new Date("2026-12-31T21:30:00Z")), "1 Ocak 2027");
+  assert.equal(tarihMetni(new Date("2027-01-05T12:00:00Z")), "5 Ocak 2027");
 });
