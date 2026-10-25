@@ -3,6 +3,7 @@
 > Her günün promptu 4. haftadaki **altı bileşenli şablona** göre yazıldı: Rol, Bağlam, Görev, Kısıtlar, Format, Doğrulama.
 > Kullanım: (1) Her gün yeni bir Claude sohbeti aç. Başına **Ortak Başlık**'ın kısa hâlini yapıştır (`CLAUDE.md` kuralları Project talimatlarında zaten var). (2) Günün promptunu yapıştır. (3) **Önce planı** iste, onayla, sonra kodu yazdır. (4) Günün sonunda **Bitiş kontrolü**'nü yap, commit et, Prompt Günlüğü'ne kısa not düş.
 > Köşeli parantezli `[...]` yerleri doldurman gereken yerlerdir. Gizli bilgileri (DATABASE_URL, parola) hiçbir prompta yazma.
+> **Not (25 Ekim 2026):** Bu plan, proje sunumla teslim edilecekmiş gibi yazılmıştı. Proje yalnızca depo, belgeler ve canlı uygulama üzerinden incelendiği için plandaki sunum ifadeleri inceleme olarak okunmalıdır. Planın özgün metni değiştirilmedi.
 
 ---
 
