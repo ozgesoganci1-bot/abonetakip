@@ -22,6 +22,7 @@ Bu klasör, AboneTakip projesini geliştirirken yapay zekâya yazdığım prompt
 | 10 | SSE ile iptal uyarısı ve riskli abonelik listesi | [gun_10_prompt_cevap.md](gun_10_prompt_cevap.md) |
 | 11 | Aylık MRR grafiği, boş durum ve hata ekranları | [gun_11_prompt_cevap.md](gun_11_prompt_cevap.md) |
 | 12 | Güvenlik gözden geçirme | [gun_12_prompt_cevap.md](gun_12_prompt_cevap.md) |
+| 13 | Demo veri betiği, README ve belge güncellemeleri | [gun_13_prompt_cevap.md](gun_13_prompt_cevap.md) |
 
 Sonraki günler çalışma ilerledikçe bu klasöre eklenecektir.
 
