@@ -5,8 +5,8 @@
 > **Görev:** AboneTakip için veri modeli ve merkezi tenant filtre yardımcısı (proje takviminde Gün 2 ve 3).
 > **Tam kayıt:** Promptların ve yapay zekâ cevaplarının günlere göre tam metni için [prompt_cevap](../prompt_cevap/README.md) klasörüne bakın.
 
-**Kullanılan araç ve model:** [örn. Claude, sürüm]
-**Tarih:** [Tarih]
+**Kullanılan araç ve model:** Claude Opus 5.5 (her prompt ayrı, yeni bir sohbette çalıştırıldı)
+**Tarih:** 25 Ekim 2026 (promptlar 18 Ekim 2026'da hazırlanmıştı; etkinlik 25 Ekim 2026'da çalıştırıldı)
 
 ---
 
@@ -18,9 +18,9 @@ Bana bir abonelik takip uygulaması yap.
 
 **Gözlenecekler:** Model çok kiracılı yapıyı kendiliğinden kurdu mu? Hangi teknolojiyi varsaydı? Rol ve yetki var mı? Metrik formülleri var mı?
 
-**Çıktı özeti:** [doldur]
+**Çıktı özeti:** Model önce hangi rolde çalışacağını sordu (test edilen model mi, değerlendirici mi). "1" cevabından sonra "Abonelik Defteri" adında kişisel, tek sayfalık bir web uygulaması üretti: abonelik ekleme, düzenleme ve silme, aylık ve yıllık toplam, önümüzdeki 30 günün ödemeleri, TRY, USD ve EUR para birimleri. Çok kiracılı yapı, rol, yetki, MRR ve churn yok. Model kayıt ekleme ve okumayı denemediğini söyledi.
 
-**Değerlendirme:** [doldur]
+**Değerlendirme:** Kısmen işe yarar. Model "abonelik takip"i kişisel bir araç olarak yorumladı. Abonelik takibi yapıyor ama tek kullanıcılı; kiracı, rol, yetki ve MRR, churn, LTV metrikleri yok. Bu yüzden AboneTakip'in çok kiracılı ihtiyacını karşılamıyor. Belirsiz prompt bu sonucu verdi.
 
 ---
 
@@ -45,9 +45,9 @@ LTV/CAC metriklerini gösterecek. Tek geliştiriciyim ve 2 haftam var.
 
 **Gözlenecekler:** `tenant_id` tüm tablolarda var mı? Roller modelde yer aldı mı? Gereksiz tablo veya mikroservis önerisi geldi mi?
 
-**Çıktı özeti:** [doldur]
+**Çıktı özeti:** Yedi tablolu bir PostgreSQL (SQL) şeması geldi: tenants, users, customers, plans, subscriptions, subscription_events ve acquisition_costs. `tenant_id` tenants dışındaki tüm tablolarda var; bileşik yabancı anahtarlar ve satır seviyesi güvenlik (RLS) önerildi. Roller `users.role` enum'unda ve bir yetki tablosu verildi. Metrikler (MRR, churn, ARPA, LTV, CAC, LTV/CAC) tablo olarak değil sorgu olarak anlatıldı. Prisma ve uygulama kodu yok. Çıktının sonuna model kendiliğinden bir "Şablon için" özeti ekledi, bu özet kullanılmadı.
 
-**Değerlendirme:** [doldur]
+**Değerlendirme:** Bağlam eklenince model kiracı, rol ve metrikleri birden kurdu ve mikroservis önermedi. İstemediğim bir tablo (`acquisition_costs`) ve ek bir katman (RLS) önerdi. Prisma ve yardımcı fonksiyon yoktu; doğrudan projeye alınabilecek kod vermedi.
 
 ---
 
@@ -87,9 +87,9 @@ izolasyonunu doğrulayacak üç test senaryosu öner.
 
 **Gözlenecekler:** Çıktı istenen sırayı izledi mi? Kısıtlar ihlal edildi mi? Tenant yardımcısı gerçekten merkezi mi?
 
-**Çıktı özeti:** [doldur]
+**Çıktı özeti:** İstenen sıra izlendi: veri modeli ve ilişkiler, Prisma şeması (altı tablo), merkezi `forTenant` yardımcısı (Prisma Client Extension) ve `getTenantDb()`, en sonda üç test senaryosu. TENANTS dışındaki her tabloda `tenantId` var, ek kütüphane yok, `DATABASE_URL` ortam değişkeninden okunuyor. İstenmeyen eklemeler: `TRIALING` durumu, `slug` alanı, `REACTIVATED` olayı; fiyat kuruş cinsinden `Int` tutuldu.
 
-**Değerlendirme:** [doldur]
+**Değerlendirme:** Kısıt ve format çıktıyı istediğim yapıya oturttu: sıra doğruydu, kısıtlar büyük ölçüde korundu ve tenant yardımcısı gerçekten merkezi (tek `forTenant`, sorgularda elle `tenantId` yok). Model yine istemediğim şeyler ekledi (`TRIALING`, `slug`, kuruş); bunları elle ayıklamak gerekir.
 
 ---
 
@@ -136,9 +136,9 @@ açıkça belirt. Var olduğundan emin olmadığın paket önerme.
 
 **Gözlenecekler:** Varsayımlar listelendi mi? Emin olunmayan noktalar (örn. Prisma sürümüne bağlı sözdizimi) belirtildi mi? Yetki ve hata durumları cevaba yansıdı mı? Önerilen paketler gerçekten var mı (npmjs.com'da kontrol et)?
 
-**Çıktı özeti:** [doldur]
+**Çıktı özeti:** Cevap "0. Kod öncesi doğrulama" bölümüyle başladı: etkilenen tablolar, yetki ve tenant kontrolleri, hata durumları (401, 403, 404, P2003, `TenantIsolationError`), ardından 7 maddelik varsayım listesi ve "emin olmadığım noktalar" geldi (Prisma sürümü: 6.x hedeflendi, 7'deki değişiklikleri bilmediğini söyledi; bileşik ilişki çakışması; `extendedWhereUnique`; CHECK kısıtları). Sonra veri modeli, Prisma şeması, `forTenant` ve `getTenantContext` yardımcısı ve üç test senaryosu. Paket olarak yalnızca `prisma`, `@prisma/client` ve `server-only` önerildi. RLS bu turda "ek katman ekleme" kısıtı yüzünden kullanılmadı.
 
-**Değerlendirme:** [doldur]
+**Değerlendirme:** Doğrulama bileşeni modelin varsayımlarını ve belirsizliklerini görünür kıldı; en değerli kısmı Prisma sürümü uyarısıydı. Varsayımların bazıları projeye uymuyor: para kuruş cinsinden `Int`, churn müşteri bazında, Prisma 6.x hedefi. `server-only` paketi npm'de doğrulandı (0.0.1); `prisma` ve `@prisma/client` projede zaten kullanılıyor.
 
 ---
 
@@ -150,17 +150,17 @@ Her tur çıktısı için işaretle:
 |---|---|---|---|---|
 | Her satırı açıklayabiliyorum | [ ] | [ ] | [ ] | [ ] |
 | Modelin varsayımları doğru | [ ] | [ ] | [ ] | [ ] |
-| Önerilen paketler gerçekten var | [ ] | [ ] | [ ] | [ ] |
-| Yetki ve tenant kontrolleri yerinde | [ ] | [ ] | [ ] | [ ] |
+| Önerilen paketler gerçekten var | [ ] | [ ] | [ ] | [x] |
+| Yetki ve tenant kontrolleri yerinde | [ ] | [x] | [x] | [x] |
 | Çalıştırıp test ettim | [ ] | [ ] | [ ] | [ ] |
-| Prompt Günlüğüne kaydettim | [ ] | [ ] | [ ] | [ ] |
+| Prompt Günlüğüne kaydettim | [x] | [x] | [x] | [x] |
 
 ## Sonuç notları
 
-- **Hangi turda çıktı en çok değişti?** [doldur]
-- **Hangi bileşen (rol, bağlam, kısıt, format, doğrulama) en fazla fark yarattı?** [doldur]
-- **Çıktıdaki hangi varsayım benim için yanlıştı?** [doldur]
-- **Zero shot, few shot ve chain of thought'tan hangisini kullandım?** (Tur 3'teki "önce şunları düşün" kısmı chain of thought'tur.) [doldur]
+- **Hangi turda çıktı en çok değişti?** Başlangıç'tan Tur 1'e geçişte: kişisel bir abonelik defteri yerine çok kiracılı bir SaaS veri modeli geldi.
+- **Hangi bileşen (rol, bağlam, kısıt, format, doğrulama) en fazla fark yarattı?** Bağlam: kiracı, rol ve metrikler Tur 1'de bağlam eklenince ortaya çıktı. Kısıt ve format Tur 2'de çıktıyı Prisma şemasına, merkezi yardımcıya ve testlere çevirdi; doğrulama Tur 3'te varsayımları görünür kıldı.
+- **Çıktıdaki hangi varsayım benim için yanlıştı?** Para kuruş cinsinden `Int` tutulmuştu, oysa projede fiyatlar kuruşsuz tam sayı TL. Model ayrıca Prisma 6.x hedefledi (projede Prisma 7.10.1 var) ve Tur 2'de istemediğim bir `TRIALING` durumu ekledi.
+- **Zero shot, few shot ve chain of thought'tan hangisini kullandım?** (Tur 3'teki "önce şunları düşün" kısmı chain of thought'tur.) Başlangıç, Tur 1 ve Tur 2'de zero shot (örnek çıktı verilmedi). Tur 3'te chain of thought. Few shot kullanılmadı.
 
 ## Proje boyunca ek kayıtlar
 
