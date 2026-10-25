@@ -41,9 +41,9 @@
 
 ## 4. Bilinen riskler ve sınırlar
 
-- **Render ücretsiz web servisi (2026 kaynaklarına göre, Render dokümantasyonundan doğrulanmalı):** 15 dakika trafik almazsa uyur, ilk istek yaklaşık 1 dakika sürebilir. Sunum öncesi siteyi önceden açıp ısıt.
-- **Neon ücretsiz veritabanı (2026 kaynaklarına göre, Neon dokümantasyonundan doğrulanmalı):** Süresizdir ama 5 dakika kullanılmazsa işlemcisi uyur, uyandıktan sonraki ilk sorgu yavaş olabilir. Depolama sınırı küçüktür (0,5-1 GB), bu proje için yeterlidir.
-- **İki ayrı sağlayıcı:** Web uygulaması Render'da, veritabanı Neon'dadır. İki hesap ve iki ayrı panel yönetilir. Bağlantı adresi yalnızca ortam değişkeninde (`DATABASE_URL`) tutulur, Render ve yerel `.env` içinde ayrı ayrı tanımlanır.
+- **Render ücretsiz web servisi (25 Ekim 2026'da [Render dokümanından](https://render.com/docs/free) doğrulandı):** 15 dakika gelen trafik almazsa uyur, sonraki ilk istekte uyanması yaklaşık 1 dakika sürer. İnceleme öncesi siteyi açıp ısıt.
+- **Neon ücretsiz veritabanı:** 5 dakika boşta kalınca durur, ücretsiz planda bu kapatılamaz ve birkaç yüz milisaniyede yeniden başlar (25 Ekim 2026'da [Neon dokümanından](https://neon.com/docs/introduction/scale-to-zero) doğrulandı). Süresiz olması ve depolama sınırı (0,5-1 GB) doğrulanmadı; bu proje için yeterli kabul edildi.
+- **İki ayrı sağlayıcı:** Web uygulaması Render'da, veritabanı Neon'dadır. İki hesap ve iki ayrı panel yönetilir. Bağlantı adresleri yalnızca ortam değişkenlerinde tutulur: `DATABASE_URL` (havuzlu) ve `DIRECT_URL` (doğrudan). Render ve yerel `.env` içinde ayrı ayrı tanımlanır. Testler ve demo betikleri `.env.test` ile Neon test dalını kullanır (Gün 6).
 - **Herkese açık depo:** Sızan bir secret herkes tarafından görülebilir. Her commit öncesi `.env` kontrolü yapılır, Gün 12'de repo ve geçmiş tarandı; sonuç "Gün 12 kararları" bölümünde (Secret taraması).
 - **Kiracı izolasyonu kodun sorumluluğundadır** (3. hafta, slayt 23 ve 24). Bu yüzden merkezi filtre, iki firmalı test ve güvenlik gözden geçirmesi planlandı.
 - **Hesaplama doğruluğu:** Metrikler dersteki basitleştirilmiş formüllerdir. Kâr marjı ve indirimler dahil değildir.
@@ -1223,3 +1223,136 @@ gösterdi: o sırada canlı `.env` hâlâ `sslmode=require` içeriyordu ve kulla
 - Canlı `curl` denemesinde adres yapıştırılırken bozuldu; Render servis adı bir değişkene konarak
   çözüldü. Render adresi bu belgede yazılmaz.
 - Commit ekleri: Claude Opus 5.5.
+
+## Gün 13 kararları (25 Ekim 2026): demo verisi (seed), README ve belgeler
+
+**Durum:** Seed ve README birleşti: PR #44 (main `3d485f3`). Dalda iki commit vardı: seed (`aebe2d5`) ve
+README. `npm run seed:demo` test dalında iki kez çalıştırıldı (ilk kurulum ve yeniden kurulum, sayılar aynı,
+kontrol özeti TAMAM). `npm run seed:demo:canli` canlıda çalıştırıldı: kontrol özeti TAMAM, iki demo kiracı
+tarayıcıda doğrulandı. Belge güncellemeleri (bu bölüm, kurulum rehberi, Prompt Günlüğü, README'deki SSE
+cümlesi) ayrı bir PR ile girdi.
+**Sonuç:** `npm test` 191 test geçiyor (86'sı yeni demo senaryosu testi). `npx tsc --noEmit` temiz.
+`npm run build` Gün 13 dalında başarılı. `kurallar.test.ts` değiştirilmedi ve geçiyor.
+
+### Kararlar
+
+**K13.1: Demo senaryosu saf bir dosyada hesaplanır ve tekrarlanabilir**
+- **Karar:** `src/test-destek/demo-kurulum.ts` iki kiracının ("Mavi Yazılım", "Kuzey Teknoloji") verisini
+  hesaplar, veritabanına dokunmaz. Rastgele seçimler sabit tohumlu küçük bir sayı üreteciyle yapılır (ek
+  paket yok). Tarihler çalıştırma anına göre kaydırılır (`gecmis-mrr-verisi.ts` ile aynı yaklaşım).
+- **İçerik:** Her kiracıda bir manager ve bir finance kullanıcısı, 3 plan (2 aylık, 1 yıllık) ve 18 müşteri
+  vardır. Abonelikler son 12 aya yayılır: başlayanlar, yenilenenler, iptal edenler, iptal edip başka planla
+  dönen bir müşteri ve 2 pasif müşteri. CAC: Mavi 4.000 TL, Kuzey 9.000 TL. Böylece biri "sağlıklı", öteki
+  "Dikkat" gösterir.
+- **Bilinçli seçimler:**
+  - Bu ay en az bir iptal vardır: churn 0 olmaz, LTV ve LTV/CAC boş görünmez.
+  - Dönem bitişine 1-6 gün kalan tam 3 riskli abonelik vardır. Diğer aboneliklerin dönem sonu en az 8 gün
+    uzaktadır.
+  - Son 12 ayın ortalama churn'ü %3-6 aralığındadır.
+  - Ayın ilk 2 saatinde betik çalışmaz, çünkü bu ayın iptali ay içine sığmaz.
+- **Test:** `demo-kurulum.test.ts` (`npm test`) senaryoyu yılın farklı anlarında üretip kontrol eder:
+  - ay ortaları, ay sonları, yıl geçişi ve artık yıl denenir
+  - gelecek tarihli kayıt yoktur
+  - bir müşterinin aynı anda tek aktif aboneliği vardır
+  - pasif müşterinin aktif aboneliği yoktur
+  - churn aralığı tutar ve bu ay churn 0'dan büyüktür
+  - tam 3 riskli abonelik vardır
+  - aynı an için aynı veri üretilir
+  - demo parolası kayıt formundaki parola kuralına uyar
+
+**K13.2: Seed, ham Prisma istemcisini kendi bağlantısıyla kullanır (istisna)**
+- **Karar:** `src/test-destek/seed-demo.ts` kendi `PrismaClient`'ını `@prisma/adapter-pg` ve `DATABASE_URL`
+  ile kurar.
+- **Neden:** `tenant.ts` firma oluşturmayı ve müşteri, plan, abonelik, olay silmeyi bilerek engeller. İlk
+  plandaki `tenantaBagliDb` ile silme bu yüzden çalışmazdı. `tenant.ts`, `veri.ts`, `canli-koruma.ts` ve
+  `db.ts` değiştirilmedi; korumaları zayıflatılmadı. `veri.ts` kullanılmadı, çünkü `TEST_VERITABANI=evet`
+  ister ve canlı moda izin vermez.
+- **Sınır:** Her silme yalnızca K13.3 ile doğrulanmış demo kiracının kimliğiyle, açık `where: { tenantId }`
+  koşuluyla yapılır. Joker silme yoktur. Bu bir yönetici betiğidir: `tenantId` istemciden gelmez. İstisna,
+  dosyanın başında yorumla yazılıdır.
+
+**K13.3: Demo kiracı tanıma kuralı**
+- **Karar:** İki koşul birlikte sağlanmalıdır:
+  1. Firma adı birebir "Mavi Yazılım" ya da "Kuzey Teknoloji".
+  2. Firmanın en az bir kullanıcısı var ve bütün kullanıcıları `@demo.example` uzantılı.
+- **Durma durumları:** Betik o kiracıya dokunmadan durur:
+  - aynı adla birden fazla firma varsa
+  - adı tutan ama demo olmayan bir firma varsa
+  - demo e-postalarından biri başka bir firmada kayıtlıysa
+- **Neden şema değişikliği yok:** `.example`, belgeler için ayrılmış bir alan adıdır (RFC 2606) ve gerçek bir
+  kişiye ait olamaz. Bu yüzden `isDemo` gibi bir sütun eklenmedi.
+- **Yeniden kurulum:** Firma satırı korunur, kimliği değişmez; yalnızca CAC güncellenir. Kayıtlar olaylardan
+  kullanıcılara doğru silinip yeniden yazılır. Her kiracı ayrı bir transaction içinde kurulur (zaman aşımı
+  60 saniye).
+
+**K13.4: Canlıya yazma iki adımlı onayla**
+- `npm run seed:demo`: `.env.test` ile çalışır. Mevcut `canli-koruma.ts` kontrolü aynen uygulanır.
+- `npm run seed:demo:canli`: `.env` ve `--canli` ile çalışır. Ek koşullar:
+  - `TEST_VERITABANI=evet` yüklü olmamalı (yanlışlıkla `seed:demo -- --canli` yazılmasına karşı)
+  - terminal etkileşimli olmalı
+  - kullanıcı `evet` yazmalı
+- Koşullardan biri eksikse ya da bilinmeyen bir seçenek verilmişse betik veritabanına bağlanmadan durur.
+
+**K13.5: Kiracıların karışmadığını betiğin kendi kontrol özeti doğrular**
+- Kurulumdan sonra kiracı başına sayılar ve dashboard'daki metrikler yazdırılır. Metrikler aynı
+  `metrikler.ts` fonksiyonlarıyla hesaplanır.
+- **Kiracılar arası kontrol:** Kayıtların sahibi tenant filtresi olmadan, yalnızca kimlikle okunur. Beş sayı
+  tutulur:
+  - başka kiracının müşterisine bağlı abonelik
+  - başka kiracının planına bağlı abonelik
+  - başka kiracının aboneliğine bağlı olay
+  - demo olmayan firmalardaki `@demo.example` kullanıcısı
+  - demo firmalardaki demo olmayan kullanıcı
+- Hepsi 0 ise "TAMAM" yazar; değilse "HATA" yazar ve çıkış kodu 1 olur. Bileşik anahtarlar bu durumları
+  veritabanında zaten engeller; kontrol ek bir güvencedir.
+- Ekrana hiçbir adres yazılmaz; yalnızca sahte e-postalar ve sayılar görünür. Hata durumunda yalnızca Prisma
+  hata kodu yazılır.
+
+**K13.6: Ortak yazma mantığı ertelendi**
+- `demo-verisi.ts` ve `gecmis-mrr-verisi.ts` içindeki tekrar eden yazma döngüsünün ortak bir dosyaya
+  çıkarılması planlanmıştı. Bu iş Gün 14'e ya da sonraya ertelendi. Eski iki betiğe dokunulmadı. Seed yalnızca
+  `donem-ilerlet.ts`'i onlarla paylaşır.
+- **Neden:** Değişiklik eski betiklerde gerileme riski taşır ve elle karşılaştırma gerektirir.
+
+**K13.7: README**
+- **İçerik:** Kurulum, demo hesaplar, rol tablosu, metrik formülleri, mimari özet, test ve demo komutları,
+  bilinen sınırlar. Demo parolası herkese açık README'dedir; bozulursa `seed:demo:canli` ile sıfırlanır.
+- **Tarihe bağlı rakamlar:** Kesin rakam yazılmadı, yalnızca yaklaşık beklenti verildi.
+- **Doğrulanan süreler:** Render uyku ve Neon uyanma süreleri 25 Ekim 2026'da resmi dokümandan doğrulanıp
+  kaynağıyla yazıldı. Aynı bilgi Bölüm 4'e ve kurulum rehberine de işlendi.
+- **Test dalı:** Neon'da canlı dalın kopyası olarak açılır; README'ye yeni bir komut eklenmedi.
+- **İnceleme:** İnceleme için çalıştırılması gereken tek test komutu `npm test`'tir.
+
+### Elle test
+
+| Durum | Ortam | Sonuç |
+|---|---|---|
+| `seed:demo` ilk çalıştırma | Test dalı | İki kiracı ilk kez kuruldu, kontrol özeti TAMAM |
+| `seed:demo` ikinci çalıştırma | Test dalı | Silinip yeniden kuruldu, sayılar aynı, TAMAM |
+| Mavi ve Kuzey manager ile dashboard, finance hesabı | Test dalı | Beklendiği gibi |
+| `seed:demo:canli`, `evet` onayı | Canlı | İki demo kiracı kuruldu, kontrol özeti TAMAM, tarayıcıda doğrulandı |
+
+### Bilinen sınırlar
+- **Tarihe bağlı veri:** Riskli liste yaklaşık 7 gün sonra boşalır. Yeni ayda henüz iptal yoksa churn 0 olur
+  ve LTV "hesaplanamadı" görünür. Seed yeniden çalıştırılınca ikisi de düzelir.
+- **Herkese açık demo hesaplar:** Veri bozulabilir ya da parola değiştirilebilir. Giriş sınırı nedeniyle bir
+  hesap 15 dakika kilitlenebilir (K12.1).
+- **Kiracılar ayrı transaction'larda:** Biri kurulup öteki durursa ilki yazılmış kalır. Betik bu durumu
+  ekrana yazar.
+- **Oturumlar:** Yeniden kurulumda demo kullanıcılar silinip yeniden yaratıldığı için açık oturumları
+  geçersizleşir.
+- **Tekrar eden kod:** Ortak yazma mantığının tekrarı sürüyor (K13.6).
+
+### Süreç notları
+- **Plan:** İki turda kesinleşti: (a)-(e) kararları ve dört ek istek (CAC, riskli abonelikler, bilinen
+  sınırlar, kontrol özeti).
+- **Doğrulama:** Seed, tarayıcıdan önce kendi kontrol özetiyle doğrulandı.
+- **README düzeltmeleri:**
+  - AI'nın önerdiği `npx dotenv` komutu çıkarıldı; `dotenv` paketinin terminal komutu yok.
+  - Node sürüm ifadesi, doğrulanan ve doğrulanmayan kısım olarak ayrıldı.
+  - "Sunumdan önce" yerine "İncelemeden önce" yazıldı.
+  - Pasife alma iddiaları ADR ve koddan doğrulandı.
+  - "İptal ve riskli abonelik uyarıları SSE ile gönderilir" cümlesi K10.7'ye göre düzeltildi: SSE yalnızca
+    iptali iletir, riskli abonelikler dashboard'da liste olarak gösterilir.
+- **Commit ekleri:** Claude Opus 5.5. Commit komutunda iki ek satır yapışık yazılmıştı; PR açıklamasında
+  ekler yanlış yerdeydi. İkisi de düzeltildi.

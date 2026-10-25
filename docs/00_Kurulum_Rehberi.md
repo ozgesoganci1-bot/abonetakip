@@ -45,7 +45,7 @@ node -v
 npm -v
 ```
 
-**Kontrol:** İkisi de bir sürüm numarası gösteriyor (örn. `v22.x.x` ve `10.x.x`). "command not found" yazarsa Terminal'i kapat-aç, olmazsa dur ve bana yaz.
+**Kontrol:** İkisi de bir sürüm numarası gösteriyor. Proje Node v26.11.1 ile geliştirildi ve denendi; testler TypeScript dosyalarını doğrudan çalıştırdığı için 22.18 veya daha yeni bir sürüm gerekir. "command not found" yazarsa Terminal'i kapat-aç, olmazsa dur ve bana yaz.
 
 ### 2.3 Git (sürüm kaydı aracı)
 Terminal'e şunu yaz:
@@ -143,7 +143,7 @@ Tarayıcıda http://localhost:3000 adresini aç. Next.js karşılama sayfasını
 | Dosya | Nereye |
 |---|---|
 | `CLAUDE.md` | Proje kökü (`abonetakip/CLAUDE.md`) |
-| `01_Proje_Onerisi.md`, `02_ADR.md`, `03_Prompt_Gunlugu.md`, `04_14_Gunluk_Prompt_Plani.md`, `00_Kurulum_Rehberi.md` | `docs/` klasörü |
+| `02_ADR.md`, `03_Prompt_Gunlugu.md`, `04_14_Gunluk_Prompt_Plani.md`, `00_Kurulum_Rehberi.md` | `docs/` klasörü |
 
 3. Dosyaları VS Code içinden de ekleyebilirsin: sol dosya listesinde boş yere sağ tık > **New File** / **New Folder**, ardından içeriği yapıştırıp `Cmd + S` ile kaydet.
 4. `CLAUDE.md` içeriğini ayrıca Claude'daki bu projenin **talimatlarına** (Project instructions) yapıştır. Böylece her yeni sohbet kuralları baştan bilir.
@@ -163,23 +163,27 @@ Tarayıcıda http://localhost:3000 adresini aç. Next.js karşılama sayfasını
 1. https://console.neon.tech adresinde Neon hesabınla giriş yap, **Create project** (veya New project) de.
 2. **Project name:** `abonetakip`. **Postgres version:** varsayılanı bırak. **Region:** Avrupa'ya yakın olanı seç (Frankfurt varsa onu). Render'daki web servisini de aynı bölgeye kuracağız, bu hızı artırır.
 3. **Create** de, proje hazır olunca **Connect** (veya Connection details) bölümünü aç.
-4. Bağlantı adresini (connection string) kopyala. Burada iki seçenek olabilir:
-   - **Direct connection** (doğrudan bağlantı): adresin içinde `-pooler` yazmaz.
-   - **Pooled connection** (havuzlu bağlantı): adresin içinde `-pooler` yazar.
-   - **Şimdilik direct (içinde `-pooler` olmayan) adresi kopyala.** Prisma'nın veritabanı geçişleri (migration) için bu daha sorunsuzdur. Gün 2'de AI'ya hangisinin gerektiğini sorduracağız.
-5. VS Code'da proje köküne `.env` adında yeni dosya oluştur ve içine şunu yaz (kopyaladığın adresi yapıştır):
+4. Bağlantı adreslerini (connection string) kopyala. İki adres gerekir:
+   - **Pooled connection** (havuzlu bağlantı): adresin içinde `-pooler` yazar. Uygulama bunu kullanır.
+   - **Direct connection** (doğrudan bağlantı): adresin içinde `-pooler` yazmaz. Prisma'nın veritabanı geçişleri (migration) bunu kullanır.
+5. Proje kökünde örnek dosyayı kopyalayarak `.env` dosyasını oluştur:
 
 ```
-DATABASE_URL="BURAYA_KOPYALADIĞIN_ADRES"
+cp .env.example .env
 ```
+
+   Dosyayı VS Code'da aç ve yer tutucuların yerine üç değeri yaz:
+   - `DATABASE_URL`: havuzlu adres (`-pooler` içerir)
+   - `DIRECT_URL`: doğrudan adres
+   - `SESSION_SECRET`: oturum anahtarı. Terminalde `openssl rand -base64 32` komutuyla üret.
 
 6. Kaydet (`Cmd + S`). **Bu adresi kimseyle, hiçbir AI sohbetine ve GitHub'a yapıştırma.** Depo herkese açık olduğu için bir kez bile sızarsa herkes veritabanına ulaşabilir. Sızarsa Neon panelinden parolayı hemen yenile.
 
-> **Ücretsiz plan notları (2026 kaynaklarına göre, Neon ve Render dokümantasyonundan teyit et):**
-> - Neon veritabanı süresizdir, 30 günlük bir sona erme yoktur. Depolama sınırı 0,5 GB veya 1 GB civarındadır, projemiz için fazlasıyla yeter.
-> - Neon, 5 dakika kullanılmazsa veritabanı işlemcisini uyutur. Uyandıktan sonraki ilk sorgu birkaç saniye yavaş olabilir. Sorun değil, hata değildir.
-> - Render ücretsiz web servisi 15 dakika trafik almazsa uyur, ilk istek yaklaşık 1 dakika sürebilir. Sunumdan önce siteyi önceden açıp ısıt.
-> - Geliştirme (bilgisayarında) ve canlı site aynı Neon veritabanını kullanacak. Bu, 2 haftalık öğrenci projesi için kabul edilen bir sadeleştirmedir ve ADR'ye yazılmıştır.
+> **Ücretsiz plan notları (uyku ve uyanma süreleri 25 Ekim 2026'da resmi belgelerden teyit edildi):**
+> - Neon veritabanı süresizdir, 30 günlük bir sona erme yoktur. Depolama sınırı 0,5 GB veya 1 GB civarındadır, projemiz için fazlasıyla yeter. (Bu madde teyit edilmedi.)
+> - Neon, 5 dakika kullanılmazsa veritabanını durdurur; ücretsiz planda bu kapatılamaz. Sonraki sorguda birkaç yüz milisaniye içinde yeniden başlar. Sorun değil, hata değildir. Kaynak: [Neon, Scale to Zero](https://neon.com/docs/introduction/scale-to-zero)
+> - Render ücretsiz web servisi 15 dakika trafik almazsa uyur, ilk istek yaklaşık 1 dakika sürebilir. İncelemeden önce siteyi açıp ısıt. Kaynak: [Render, Deploy for Free](https://render.com/docs/free)
+> - `.env` canlı veritabanıdır. Testler ve demo betikleri için Neon'da canlı dalın kopyası olarak ayrı bir test dalı açılır ve adresleri `.env.test` dosyasına yazılır (Gün 6). `npm run dev:test` uygulamayı bu dalda açar.
 
 ## 11. Yapay zekâ aracı: Claude (sohbet) + VS Code
 
@@ -213,10 +217,10 @@ DATABASE_URL="BURAYA_KOPYALADIĞIN_ADRES"
 2. **Yeni dal (branch) aç:** `Branch > New Branch`, adı örn. `feat/gun-04-musteri-plan`. **Create Branch**.
 3. Günün promptunu Claude'a (sohbette) ver. Önce planı onayla, sonra Claude'un verdiği dosyaları VS Code'da oluşturup içeriklerini yapıştır (Bölüm 11'deki "Kodu projeye alma" adımları).
 4. Uygulamayı çalıştır: VS Code terminalinde `npm run dev`, tarayıcıda dene.
-5. GitHub Desktop'ta değişiklikleri kontrol et (`.env` yok mu?), anlamlı bir mesajla **Commit** yap.
-6. **Publish branch** (ilk sefer) veya **Push origin** bas.
-7. **Create Pull Request** butonuna bas. Tarayıcıda GitHub açılır. **Create pull request** ve ardından **Merge pull request** de.
-8. GitHub Desktop'ta `main` dalına dön ve **Pull origin** bas.
+5. Değişen dosyaları terminalde `git add` ile hazırla ve commit öncesi üç taramayı yap (komutlar `CLAUDE.md` içinde). Commit'i terminalden at; ekler mesajın en sonunda tek blok olur.
+6. GitHub Desktop'ta **Publish branch** (ilk sefer) veya **Push origin** bas.
+7. **Create Pull Request** butonuna bas. Tarayıcıda GitHub açılır. **Create pull request** ve ardından **Squash and merge** de.
+8. Terminalde `git switch main` ve ardından `git pull` çalıştır.
 
 ### Hata şablonu (AI'ya yapıştırılacak)
 
@@ -240,7 +244,7 @@ Beklediğim sonuç: [örn. sayfanın açılması]
 | Git kullanıcı bilgisi istiyor | GitHub Desktop ile commit yap, otomatik halleder. |
 | Push reddedildi | Önce **Pull origin** bas, sonra tekrar dene. |
 | Site Render'da açılmıyor | Ücretsiz servis uyuyor olabilir, 1-2 dakika bekle. |
-| Veritabanı ilk sorguda yavaş | Neon uyuyordu, uyanıyor. Birkaç saniye bekle, tekrar dene. |
+| Veritabanı ilk sorguda yavaş | Neon uyuyordu, uyanıyor. Bir an bekle, tekrar dene. |
 | Prisma geçişinde (migration) bağlantı hatası | Havuzlu (`-pooler`) adres kullanıyor olabilirsin. Direct adresi dene ya da hata metnini AI'ya ver. |
 
 ## 14. Kurulum bitti mi? Son kontrol listesi

@@ -126,7 +126,7 @@ Rol kontrolü sunucu tarafında yapılır; arayüzde bir düğmeyi gizlemek yetk
 - Her durum değişikliği olay kaydı olarak saklanır (STARTED, RENEWED, CANCELED). Abonelik ve olay aynı işlemde yazılır.
 - Dönem bitişi `currentPeriodEnd` alanında tutulur. Ay sonları taşmaz (31 Ocak + 1 ay = 28 Şubat).
 - **Riskli abonelikler:** dönem bitişine 7 günden az kalmış ya da süresi geçmiş aktif abonelikler listelenir.
-- **Gerçek zamanlı uyarı:** iptal ve riskli abonelik uyarıları SSE ile yalnızca ilgili firmanın kullanıcılarına gönderilir.
+- **Gerçek zamanlı uyarı:** abonelik iptali SSE ile yalnızca ilgili firmanın kullanıcılarına anında bildirilir. Riskli abonelikler SSE ile gönderilmez, dashboard sayfasındaki listede sayfa açılışında hesaplanır.
 
 ## Metrik formülleri
 Bütün hesaplar `src/lib/metrikler.ts` içinde saf fonksiyonlardır ve birim testleri vardır. Aylar Türkiye saatine göre hesaplanır.
@@ -194,12 +194,11 @@ Projeyi incelemek için çalıştırılması gereken tek test komutu **`npm test
 
 ## Kapsam (MoSCoW)
 - **MUST:** kayıt, giriş ve roller; müşteri ve plan yönetimi; abonelik yaşam döngüsü; KPI dashboard; kiracı izolasyonu
-- **SHOULD:** SSE ile iptal ve riskli abonelik uyarısı, aylık MRR grafiği
+- **SHOULD:** SSE ile iptal uyarısı (riskli abonelikler liste olarak), aylık MRR grafiği
 - **WON'T:** ödeme entegrasyonu, çoklu para birimi, e-posta bildirimi, mikroservis
 
 ## Dokümanlar
 - [Kurulum rehberi](docs/00_Kurulum_Rehberi.md)
-- [Proje önerisi](docs/01_Proje_Onerisi.md)
 - [Mimari Karar Kaydı (ADR)](docs/02_ADR.md)
 - [Prompt Günlüğü](docs/03_Prompt_Gunlugu.md)
 - [14 günlük prompt planı](docs/04_14_Gunluk_Prompt_Plani.md)
