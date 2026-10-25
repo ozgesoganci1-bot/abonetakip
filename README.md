@@ -203,6 +203,7 @@ Projeyi incelemek için çalıştırılması gereken tek test komutu **`npm test
 ## Kapsam (MoSCoW)
 - **MUST:** kayıt, giriş ve roller; müşteri ve plan yönetimi; abonelik yaşam döngüsü; KPI dashboard; kiracı izolasyonu
 - **SHOULD:** SSE ile iptal uyarısı (riskli abonelikler liste olarak), aylık MRR grafiği
+- **COULD (yapılmadı):** CSV dışa aktarma, plan bazlı kırılım. MUST ve SHOULD maddelerine öncelik verildiği için bu iki madde kapsam dışı kaldı.
 - **WON'T:** ödeme entegrasyonu, çoklu para birimi, e-posta bildirimi, mikroservis
 
 ## Dokümanlar
