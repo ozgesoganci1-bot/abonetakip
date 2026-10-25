@@ -58,3 +58,18 @@ export function kisaAyEtiketi(yil: number, ay: number): string {
   const kisaYil = String(yil % 100).padStart(2, "0");
   return `${ayAdi} ${kisaYil}`;
 }
+
+
+// Tarih (Gün 14, kullanıcı listesi): Date -> "25 Ekim 2026"
+// Saat dilimi Türkiye'ye sabitlenir. Render sunucusu UTC'de çalışır; sabitlenmezse
+// Türkiye saatiyle 00.00-03.00 arasında eklenen bir kaydın tarihi bir gün önce görünürdü.
+const TARIH_BICIMI = new Intl.DateTimeFormat("tr-TR", {
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+  timeZone: "Europe/Istanbul",
+});
+
+export function tarihMetni(tarih: Date): string {
+  return TARIH_BICIMI.format(tarih);
+}

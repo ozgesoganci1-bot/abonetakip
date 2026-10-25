@@ -24,6 +24,12 @@ import { BLOK_MESAJI, girisSiniri } from "./giris-siniri";
 // bcrypt maliyeti: sayı büyüdükçe özetleme yavaşlar ve kırılması zorlaşır.
 const BCRYPT_TUR = 12;
 
+// Parolayı bcrypt ile özetler. Kayıt ve kullanıcı ekleme (Gün 14) bunu kullanır;
+// böylece bcrypt maliyeti tek yerde kalır.
+export async function parolaOzetle(parola: string): Promise<string> {
+  return bcrypt.hash(parola, BCRYPT_TUR);
+}
+
 // Giriş hatasında hangi alanın yanlış olduğu bilerek söylenmez.
 // Dışarı açıktır: giris.test.ts aynı metni karşılaştırır (Gün 12).
 export const GIRIS_HATASI = "E-posta veya parola hatalı.";
@@ -103,7 +109,7 @@ export async function kayitOl(girdi: KayitGirdisi): Promise<IslemSonucu> {
   }
 
   // Parola düz metin saklanmaz, bcrypt ile özetlenir.
-  const passwordHash = await bcrypt.hash(girdi.parola, BCRYPT_TUR);
+  const passwordHash = await parolaOzetle(girdi.parola);
 
   try {
     // İç içe oluşturma tek bir işlemdir: ya firma ve kullanıcı birlikte

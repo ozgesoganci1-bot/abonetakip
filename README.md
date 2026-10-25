@@ -24,6 +24,14 @@ Canlı sitede iki sahte firma hazırdır. Bütün demo hesapların parolası: **
 - Demo hesaplar herkese açıktır. Biri veriyi bozar ya da parolayı değiştirirse geliştirici `npm run seed:demo:canli` ile iki demo firmayı sıfırlar (bkz. [Demo verisi](#demo-verisi-seed)).
 - İki firmanın verisi bilerek farklıdır. Örneğin Mavi'de LTV/CAC "sağlıklı" (3 ve üzeri), Kuzey'de "Dikkat" (3'ün altında) görünür. Kesin rakamlar verinin kurulduğu güne göre değişir.
 
+## İnceleme için
+1. **Siteyi ısıt:** Canlı adresi açıp giriş sayfası gelene kadar bekleyin (uykudaysa yaklaşık 1 dakika). Ardından bir demo hesapla girip dashboard'u bir kez yükleyin: veritabanının uyanma gecikmesi bu ilk sorguda yaşanır, sonraki sayfalar hızlı açılır.
+2. **Yönetici gözüyle:** `yonetici.mavi@demo.example` ile girin. Dashboard (metrikler, MRR grafiği, riskli abonelikler), Müşteriler, Planlar, Abonelikler, Ayarlar (CAC) ve Kullanıcılar (liste ve finans kullanıcısı ekleme) sayfalarına bakın. Kullanıcı eklemeyi denerseniz `@demo.example` uzantılı bir e-posta kullanın.
+3. **Rol farkı:** `finans.mavi@demo.example` ile girin. Kayıt sayfaları açıktır; Ayarlar ve Kullanıcılar sayfaları yetki yok ekranı gösterir.
+4. **Kiracı izolasyonu:** İkinci bir tarayıcıda Kuzey Teknoloji hesabıyla girin (bu README'deki "İki firmanın karışmadığını doğrulama" bölümüne bakın).
+5. **Gerçek zamanlı uyarı:** Aynı firmanın iki hesabını iki ayrı tarayıcıda açın. Birinde bir aboneliği iptal edin, uyarı ötekinde sayfa yenilenmeden görünür. (İptal demo veriyi değiştirir; demo veri sıfırlanabilir.)
+6. **Kod ve süreç:** `npm test` veritabanı istemez. Kararlar [ADR](docs/02_ADR.md), yapay zekâ ile çalışma süreci [Prompt Günlüğü](docs/03_Prompt_Gunlugu.md) ve [prompt ve cevaplar](prompt_cevap/README.md) içindedir.
+
 ## Teknoloji
 - Next.js (App Router) ve TypeScript
 - PostgreSQL (Neon) ve Prisma 7 (PostgreSQL sürücü adaptörü ile)
@@ -158,7 +166,7 @@ Projeyi incelemek için çalıştırılması gereken tek test komutu **`npm test
 | Komut | Ne yapar? | Veritabanı |
 |---|---|---|
 | `npm test` | Birim testleri (metrikler, dönem hesabı, doğrulama, yetki, giriş sınırı, demo senaryosu vb.) | Gerekmez |
-| `npm run test:db` | Kiracı izolasyonu, pasife alma, dashboard verisi, riskli abonelikler, giriş | Neon test dalı (`.env.test`) |
+| `npm run test:db` | Kiracı izolasyonu, pasife alma, dashboard verisi, riskli abonelikler, giriş, kullanıcı ekleme | Neon test dalı (`.env.test`) |
 | `npx tsc --noEmit` | TypeScript tip kontrolü | Gerekmez |
 | `npm run lint` | ESLint kontrolü | Gerekmez |
 
@@ -184,10 +192,10 @@ Projeyi incelemek için çalıştırılması gereken tek test komutu **`npm test
 2. **Tarayıcı:** İki ayrı tarayıcıda (ya da biri gizli pencerede) `yonetici.mavi@demo.example` ve `yonetici.kuzey@demo.example` ile gir. Müşteri listeleri, MRR ve LTV/CAC farklı olmalı. Bir firmanın müşteri sayfası adresini kopyalayıp öteki firmanın oturumunda açınca "Kayıt bulunamadı" görünmelidir.
 
 ## Bilinen sınırlar
-- **Render uyku süresi:** Ücretsiz Render web servisi 15 dakika trafik almazsa uyur. Sonraki ilk istekte uyanması yaklaşık 1 dakika sürer. İncelemeden önce siteyi açıp ısıtmak gerekir. Kaynak: [Render, Deploy for Free](https://render.com/docs/free)
+- **Render uyku süresi:** Ücretsiz Render web servisi 15 dakika trafik almazsa uyur. Sonraki ilk istekte uyanması yaklaşık 1 dakika sürer. İncelemeden önce siteyi açıp ısıtmak gerekir (bkz. İnceleme için, 1. madde). Kaynak: [Render, Deploy for Free](https://render.com/docs/free)
 - **Neon uyanma gecikmesi:** Neon veritabanı 5 dakika kullanılmazsa durur (ücretsiz planda bu ayar kapatılamaz). Sonraki sorguda birkaç yüz milisaniye içinde yeniden başlar; ilk sorgu biraz yavaş olabilir. Kaynak: [Neon, Scale to Zero](https://neon.com/docs/introduction/scale-to-zero)
 - **Giriş deneme sınırı:** Aynı e-postaya 15 dakika içinde en fazla 5 deneme yapılabilir; 6. denemeden sonra bu e-postayla giriş 15 dakika engellenir (doğru parola da reddedilir). Sayaç e-posta başınadır ve sunucunun belleğinde tutulur: sunucu yeniden başlarsa sıfırlanır, IP başına sınır yoktur. Demo hesaplar herkese açık olduğu için başkası yanlış denemelerle bir demo hesabı 15 dakika kilitleyebilir; bu durumda diğer demo hesap kullanılabilir.
-- **Kullanıcı ekleme:** Kullanıcılar sayfası henüz yer tutucudur. Bu yüzden bir firmaya finans kullanıcısı arayüzden eklenemez. Demo firmalardaki finans hesapları seed betiğiyle oluşturulur.
+- **Kullanıcı yönetimi:** Yönetici, Kullanıcılar sayfasında firmasının kullanıcılarını görür ve finans rolünde yeni kullanıcı ekler. Silme, rol değiştirme, pasife alma, parola sıfırlama ve davet e-postası yoktur; parolayı yönetici belirler ve kullanıcıya kendisi iletir. Firmaya ikinci bir yönetici eklenemez, kullanıcı sayısı için üst sınır yoktur. Gerekçeler [ADR, Gün 14 bölümünde](docs/02_ADR.md).
 - **Riskli abonelik listesi:** Demo verisindeki riskli abonelikler, betiğin çalıştırıldığı güne göre 1-6 gün sonra biter. Yaklaşık 7 gün sonra liste boşalır; seed yeniden çalıştırılınca yine dolar.
 - **Demo verisi tarihe bağlıdır:** Seed'den sonra zaman geçtikçe "bu ay" değişir. Yeni ayda henüz iptal yoksa churn 0 olur ve LTV "hesaplanamadı" görünür; seed yeniden çalıştırılınca düzelir.
 - **Güvenlik sınırları:** Gün 12 güvenlik incelemesinde bilinçli olarak kabul edilen sınırlar (örneğin çıkışta oturumun sunucuda iptal edilmemesi, SSE bağlantılarının tek süreçte tutulması, kayıt sınırı olmaması) gerekçeleriyle birlikte [ADR, Gün 12 bölümünde](docs/02_ADR.md) yazılıdır.

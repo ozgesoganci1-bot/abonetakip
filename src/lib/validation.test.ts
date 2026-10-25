@@ -1,15 +1,22 @@
-// DOĞRULAMA BİRİM TESTİ (Gün 9)
+// DOĞRULAMA BİRİM TESTİ (Gün 9, Gün 14'te genişletildi)
 //
 // Çalıştırmak için: npm test
 // Veritabanı gerekmez.
-// İki amacı var:
+// Üç amacı var:
 //   1. Gün 9'da fiyat kontrolü ortak bir iç fonksiyona taşındı. Fiyat mesajlarının
 //      Gün 4'teki hâliyle HARFİ HARFİNE aynı kaldığını kilitler.
 //   2. Yeni CAC kontrolünü test eder: fiyatla aynı kurallar, tek fark 0 kabul edilir.
+//   3. (Gün 14) Kullanıcı ekleme formunun doğrulamasını test eder: kayıt formuyla
+//      aynı kurallar, bütün alan hataları birlikte döner, parola mesajlarda geçmez.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { fiyatDogrula, cacDogrula, type Sonuc } from "./validation.ts";
+import {
+  fiyatDogrula,
+  cacDogrula,
+  kullaniciGirdisiniDogrula,
+  type Sonuc,
+} from "./validation.ts";
 
 // Sonuç başarılıysa değeri döner, değilse testi durdurur.
 function deger(sonuc: Sonuc<number>): number {
@@ -78,4 +85,69 @@ test("CAC: metin olmayan girdi (null, sayı) boş sayılır", () => {
   // Formdan her zaman metin gelir. Başka bir şey gelirse (formla oynanmışsa) boş sayılır.
   assert.equal(hata(cacDogrula(null)), "CAC boş bırakılamaz. Girmek istemiyorsanız 0 yazın.");
   assert.equal(hata(cacDogrula(5000)), "CAC boş bırakılamaz. Girmek istemiyorsanız 0 yazın.");
+});
+
+// ---------- Kullanıcı ekleme (Gün 14) ----------
+
+test("kullanıcı: geçerli girdi temizlenir, e-posta küçük harfe çevrilir, parola kırpılmaz", () => {
+  const sonuc = kullaniciGirdisiniDogrula({
+    adSoyad: "  Deneme Finans  ",
+    eposta: "  Deneme.Finans@Example.COM ",
+    parola: " parola-12345 ",
+  });
+  assert.ok(sonuc.ok, "başarılı olmalıydı");
+  assert.deepEqual(sonuc.deger, {
+    adSoyad: "Deneme Finans",
+    eposta: "deneme.finans@example.com",
+    parola: " parola-12345 ", // kullanıcı ne yazdıysa o
+  });
+});
+
+test("kullanıcı: bütün alan hataları birlikte döner, parola mesajlarda geçmez", () => {
+  const sonuc = kullaniciGirdisiniDogrula({
+    adSoyad: "",
+    eposta: "gecersiz",
+    parola: "kisa1",
+  });
+  assert.ok(!sonuc.ok, "hata vermeliydi");
+  assert.deepEqual(sonuc.alanHatalari, {
+    adSoyad: "Ad soyad boş bırakılamaz.",
+    eposta: "Lütfen geçerli bir e-posta adresi girin.",
+    parola: "Parola en az 8 karakter olmalıdır.",
+  });
+  assert.ok(!JSON.stringify(sonuc).includes("kisa1"), "parola sonuçta geçmemeli");
+});
+
+test("kullanıcı: yalnızca hatalı alanın mesajı döner", () => {
+  const sonuc = kullaniciGirdisiniDogrula({
+    adSoyad: "A",
+    eposta: "deneme.finans@example.com",
+    parola: "parola-12345",
+  });
+  assert.ok(!sonuc.ok, "hata vermeliydi");
+  assert.deepEqual(sonuc.alanHatalari, {
+    adSoyad: "Ad soyad en az 2 karakter olmalıdır.",
+  });
+});
+
+test("kullanıcı: parola 72 baytı geçemez (Türkçe karakter 2 bayt sayılır)", () => {
+  const ortak = { adSoyad: "Deneme Finans", eposta: "deneme.finans@example.com" };
+  // 36 x "ğ" = 72 bayt: kabul edilir
+  assert.ok(kullaniciGirdisiniDogrula({ ...ortak, parola: "ğ".repeat(36) }).ok);
+  // 37 x "ğ" = 74 bayt: reddedilir
+  const uzun = kullaniciGirdisiniDogrula({ ...ortak, parola: "ğ".repeat(37) });
+  assert.ok(!uzun.ok, "hata vermeliydi");
+  assert.deepEqual(uzun.alanHatalari, {
+    parola: "Parola çok uzun. Daha kısa bir parola seçin.",
+  });
+});
+
+test("kullanıcı: metin olmayan girdi (null, sayı) boş sayılır", () => {
+  const sonuc = kullaniciGirdisiniDogrula({ adSoyad: null, eposta: 5, parola: null });
+  assert.ok(!sonuc.ok, "hata vermeliydi");
+  assert.deepEqual(sonuc.alanHatalari, {
+    adSoyad: "Ad soyad boş bırakılamaz.",
+    eposta: "E-posta adresi boş bırakılamaz.",
+    parola: "Parola boş bırakılamaz.",
+  });
 });

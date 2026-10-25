@@ -1356,3 +1356,97 @@ cümlesi) ayrı bir PR ile girdi.
     iptali iletir, riskli abonelikler dashboard'da liste olarak gösterilir.
 - **Commit ekleri:** Claude Opus 5.5. Commit komutunda iki ek satır yapışık yazılmıştı; PR açıklamasında
   ekler yanlış yerdeydi. İkisi de düzeltildi.
+
+  ## Gün 14 kararları (25 Ekim 2026): kullanıcı yönetimi
+
+**Durum:** Gün 1 issue #1 (MUST: kayıt, giriş, roller) firma sahibinin çalışanlarını rol ile ekleyebilmesini
+istiyordu, ancak Kullanıcılar sayfası o güne kadar yer tutucuydu. Gün 6, Gün 9 ve Gün 11 bölümlerindeki
+"yer tutucu" ifadeleri o günlerin durumudur, değiştirilmedi. Gün 14'te sayfa dolduruldu. Değişiklik
+`gun14-kullanici-yonetimi` dalında, tek PR ile girer.
+**Sonuç:** `npm test` 197 test (6 yeni), `npm run test:db` 64 test (7 yeni) geçiyor, kalan 0.
+`npx tsc --noEmit` ve `npm run lint` temiz, `npm run build` başarılı (`/kullanicilar` dinamik rota).
+Şema değişikliği ve yeni paket yok.
+
+### Kararlar
+
+**K14.1: Yalnızca finans kullanıcısı eklenir**
+- **Karar:** Manager, Kullanıcılar sayfasında firmasının kullanıcılarını (ad soyad, e-posta, rol, eklenme
+  tarihi) görür ve yeni kullanıcı ekler. Eklenen kullanıcının rolü her zaman `finance`'tır. Formda rol alanı
+  yoktur, rolü sunucu yazar; formdan yalnızca ad soyad, e-posta ve parola okunur.
+- **Neden:** Silme ve rol değiştirme kapsam dışı olduğu için yanlışlıkla eklenen bir manager geri alınamazdı.
+  Firmanın tek manager'ı kayıt olan kişidir.
+- **Yetki:** Sayfa `requireManager()` ile korunur, finance "yetkiniz yok" ekranını görür. Ekleme işlemi rolü
+  sunucuda ayrıca kontrol eder (`kullaniciEkleCekirdek`); sayfayı gizlemek yetki sayılmaz.
+- **Oturum:** Yeni kullanıcı için oturum açılmaz, manager kendi oturumunda kalır.
+
+**K14.2: E-posta benzersizliği veritabanı kısıtıyla sağlanır**
+- Kullanıcı e-postası bütün sistemde benzersizdir (`email @unique`). Müşteri e-postasından farklı olarak firma
+  bazında değildir (Gün 4).
+- Önceden arama yapılmaz: `getTenantDb()` aramaya kendi firmanın filtresini eklediği için başka firmadaki
+  kaydı görmezdi. Ekleme denenir, tekrar eden kayıt hatası (P2002) `tekrarEdenKayitMi()` ile yakalanır ve
+  kayıt formundaki mesaj ("Bu e-posta adresiyle zaten bir hesap var.") e-posta alanında gösterilir.
+- E-posta kayıttaki gibi hazırlanır: kırpılır ve küçük harfe çevrilir (`epostaDogrula`).
+
+**K14.3: Girdi ve parola kuralları kayıtla aynı**
+- `kullaniciGirdisiniDogrula()` (`validation.ts`) kayıttaki kuralları kullanır: ad soyad 2-100 karakter,
+  parola en az 8 karakter ve en çok 72 bayt. Kayıttan farkı, müşteri formu gibi bütün alan hatalarını
+  birlikte döndürmesidir.
+- Parola `auth.ts` içindeki yeni `parolaOzetle()` ile bcrypt'le özetlenir. Kayıt da artık aynı fonksiyonu
+  kullanır, bcrypt maliyeti tek yerde kalır. Kayıt akışının davranışı değişmedi (`giris.test.ts` ve elle
+  test).
+- Parola hata durumunda forma geri gönderilmez ve loglanmaz. Beklenmeyen hatada log satırı sabit bir metindir.
+
+**K14.4: Mevcut yapıya uyuldu**
+- `tenant.ts` ve şema değişmedi. User tablosuna ekleme, kiracı filtresinin yazma beyaz listesinden geçer;
+  `tenantId` oturumdaki değerle ezilir.
+- Çekirdek ve test deseni `cac-ayari.ts` ile aynıdır: `src/lib/kullanici-yonetimi.ts`
+  (`kullanicilariListele`, `kullaniciEkleCekirdek`). Sunucu işlemi yalnızca oturumu okur. Liste parola
+  özetini hiç seçmez.
+- Eklenme tarihi `bicim.ts` içindeki yeni `tarihMetni()` ile Türkiye saatine göre gösterilir (Render
+  sunucusu UTC'de çalışır).
+- `package.json`'da yalnızca `test:db` listesine yeni test dosyası eklendi.
+
+**K14.5: Test kapsamı**
+- `npm test`: `validation.test.ts` (5 yeni) ve `bicim.test.ts` (1 yeni).
+- `npm run test:db`: `kullanici-yonetimi.test.ts` (7 test)
+  - finance kullanıcı ekleyemez
+  - geçersiz girdi alan hatası verir, parola geri dönmez
+  - başarılı eklemede rol finance, firma A, e-posta küçük harf, parola bcrypt özeti
+  - yeni kullanıcı A'nın listesinde görünür, B'ninkinde görünmez; listede parola özeti yoktur
+  - aynı firmadaki ve başka firmadaki e-posta aynı mesajla reddedilir
+  - firmayı kullanıcı nesnesindeki `tenantId` değil, `db` belirler
+
+### Elle test
+Test dalında, iki yeni firma ve sahte `@example.com` hesaplarıyla 13 adımın hepsi beklenen sonucu verdi.
+
+### Bilinen sınırlar
+- **Kapsam dışı:** Davet e-postası (e-posta bildirimi WON'T), parola sıfırlama, kullanıcı silme, rol
+  değiştirme, pasife alma.
+- **Parola:** Parolayı yalnızca yönetici belirler ve kullanıcıya kendisi iletir. Parola değiştirme akışı
+  yoktur.
+- **İkinci yönetici yok:** Firmaya manager eklenemez (K14.1).
+- **Üst sınır yok:** Kullanıcı sayısı için üst sınır, ekleme işlemi için hız sınırı yoktur (kayıt sınırı
+  olmamasıyla aynı, Gün 12).
+- **B11 kullanıcı eklemede de geçerli:** Mesaj, e-postanın başka bir firmada kayıtlı olduğunu belli eder.
+  Kayıt formu aynı bilgiyi zaten verdiği için belirsiz bir mesaj sızıntıyı kapatmazdı, yöneticiyi yanıltırdı.
+- **Demo firmaya demo olmayan kullanıcı:** Canlı demo hesaplar herkese açıktır. Biri demo firmaya
+  `@demo.example` dışında bir e-postayla kullanıcı eklerse seed o firmayı demo saymaz ve dokunmadan durur
+  (K13.3: bütün kullanıcılar `@demo.example` olmalı). Arayüzde silme olmadığı için eklenen kullanıcı Neon'da
+  e-posta ve tarih şartıyla silinir, ardından `seed:demo:canli` çalıştırılır. README'de denerken
+  `@demo.example` kullanılması rica edildi.
+
+### Süreç notları
+- **Plan:** Gün 14 şablonu sunum hazırlığı istiyordu. Proje sunumsuz, depo, belgeler ve canlı uygulama
+  üzerinden incelendiği için sunum akışı yerine README'ye kısa bir "İnceleme için" bölümü eklendi. Kullanıcı
+  yönetimi temizlik işlerinden önce yapıldı.
+- **Önce mevcut dosyalar:** E-posta kuralı ve User tablosundaki yazma kuralları tahmin edilmedi. `tenant.ts`,
+  `auth.ts`, kayıt akışı, şema ve ayarlar sayfası gösterildikten sonra plan kesinleşti. Her parçadan sonra
+  testler çalıştırıldı.
+- **Neon test dalı temizliği:** Elle test hesapları test dalından silindi. Test dalında önceki günlerden
+  (22 Ekim) kalma elle test kayıtları ve aynı adlı eski bir firma vardır, bilerek silinmedi. AI'nın önerdiği
+  temizlik sorgusu ad desenine bağlıydı ve bu eski kayıtları da silerdi. Sorgu tam e-posta adreslerine ve
+  `createdAt >= 2026-10-25` şartına bağlanarak çalıştırıldı: 3 kullanıcı ve 2 firma silindi, son kontrol
+  0 / 0 / 1 (eski firma yerinde).
+- **Dal kontrolü:** Neon SQL Editor ilk açılışta canlı dalda (Default) açıktı. Orada yalnızca bir SELECT
+  çalıştı (0 satır), hemen test dalına geçildi. Silme sorgularından önce dal seçicisi kontrol edilir.
+- **Test sayısı:** AI `test:db` için 65 test bekledi. Dosyada 7 test vardır, doğrusu 64.
