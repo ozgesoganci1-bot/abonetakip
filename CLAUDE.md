@@ -64,7 +64,10 @@
 - Tüm kullanıcı girdileri sunucuda doğrulanır.
 - Test ve demo verisi sahte ama gerçekçi olur.
 - `.env.example` yalnızca yer tutucu içerir (`[NEON_POOLED_URL]`). Gerçek adres veya parola asla yazılmaz.
-- Commit öncesi iki tarama yapılır, ikisi de içerik basmaz: `git --no-pager grep -c -E "npg_[A-Za-z0-9]{6,}"` (parola; çıktı boş olmalı) ve `git --no-pager grep -o -E "ep-[a-z0-9-]+\.[a-z0-9.-]*neon\.tech" | grep -vc "ep-xxxx"` (sunucu adı; sonuç 0 olmalı). Belgelerdeki örnek adresler `ep-xxxx` biçiminde yazılır.
+- Commit öncesi üç tarama yapılır, üçü de içerik basmaz. Dosyalar önce `git add` ile hazırlanır ve taramalar hazırlanan dosyalara bakar (`--cached` seçeneği desenden önce yazılır):
+  1. Parola taraması: `git --no-pager grep --cached -c -E "npg_[A-Za-z0-9]{6,}"` (çıktı boş olmalı).
+  2. Sunucu adı taraması: `git --no-pager grep --cached -o -E "ep-[a-z0-9-]+\.[a-z0-9.-]*neon\.tech" | grep -vc "ep-xxxx"` (sonuç 0 olmalı). Belgelerdeki örnek adresler `ep-xxxx` biçiminde yazılır.
+  3. Kişisel ad taraması: geliştiricinin adına ve soyadına ait desen aranır, GitHub kullanıcı adı çıkarıldıktan sonra sonuç 0 olmalıdır. Gerçek komut proje talimatlarındadır; belgelere ve `prompt_cevap` dosyalarına yazılan ad deseni [AD_DESENI] olarak maskelenir.
 - Prompt günlüğüne (`prompt_cevap/`) yapıştırılan her içerik, yapıştırmadan önce maskelenir: `[DATABASE_URL]`, `[NEON_HOST]`, `[NEON_PAROLA]`.
 - Terminal komutları `.env` içeriğini (parola dahil) ekrana basmamalı.
 - Prisma geçişlerinde `migrate dev` her zaman `--create-only` ile çalıştırılır. `migration.sql` içinde `subscriptions_one_active_per_customer` dizinini silen bir `DROP INDEX` satırı varsa o satır silinir (bu dizin elle eklenmiştir, şemada yoktur).
@@ -88,3 +91,11 @@
 - Mevcut kod yapısına uy. Yeni bir yapı icat etme. Gerekirse mevcut dosyanın içeriğini göstermemi iste.
 - Cevabın sonunda yaptığın varsayımları listele ve emin olmadığın yeri belirt.
 - Anlamadığın veya birden fazla yoruma açık bir noktada tahmin etme, bana sor.
+
+## Çalışma düzeni (Git ve geliştirme)
+- `main` dalına doğrudan push yapılmaz. Her iş için dal açılır, GitHub Desktop'ta Publish branch ve Create Pull Request kullanılır, Squash and merge ile birleştirilir. Sonra `git switch main`, `git pull` ve dal silinir (squash sonrası yerelde `git branch -D` gerekir).
+- Commit terminalden atılır. Commit mesajının sonundaki ekler ardışık ve tek blokta en sonda yazılır: `Co-Authored-By: Claude <Model> <noreply@anthropic.com>` ve `Claude-Session: <oturum adresi>`. PR açıklaması "🤖 Generated with [Claude Code](https://claude.com/claude-code)" satırı, boş satır ve oturum adresi ile biter.
+- `.env` canlı veritabanıdır, `.env.test` Neon `test` dalıdır. `npm run dev:test` uygulamayı test dalında açar (canlı koruması vardır). `npm run demo:veri -- <e-posta>` test firmasına demo veri yazar.
+- `npm test` veritabanı istemez. `npm run test:db` test dalını kullanır.
+- Demo kiracılar (Mavi Yazılım, Kuzey Teknoloji) yalnızca `@demo.example` kullanıcıları içerirse `seed:demo:canli` tarafından yenilenir. Bu firmalara başka e-posta uzantılı kullanıcı eklenmez.
+- Yeni dosyalar terminalden `touch` ile boş açılır, içeriği geliştirici editöre yapıştırır. Küçük düzenlemeler `perl -pi -e` ile yapılır.
