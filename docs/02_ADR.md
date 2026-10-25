@@ -53,10 +53,16 @@
 
 | Tarih | Değişiklik | Neden |
 |---|---|---|
-| [Tarih] | İlk sürüm | Proje başlangıcı |
-| [Tarih] | Veritabanı Render PostgreSQL yerine **Neon PostgreSQL** olarak değiştirildi | Render'ın ücretsiz veritabanı 30 günde sona eriyor, sunum tarihi belirsiz. Neon ücretsiz planı süresiz. Servis modeli (PaaS) ve barındırma kararı değişmedi. |
-| [Tarih] | Depo görünürlüğü herkese açık (public) yapıldı | Erişim kolaylığı. Secret güvenliği kuralları sıkılaştırıldı. |
+| 18 Ekim 2026 | İlk sürüm | Proje başlangıcı |
+| 18 Ekim 2026 |Veritabanı Render PostgreSQL yerine **Neon PostgreSQL** olarak değiştirildi | Render'ın ücretsiz veritabanı 30 günde sona eriyor, sunum tarihi belirsiz. Neon ücretsiz planı süresiz. Servis modeli (PaaS) ve barındırma kararı değişmedi. |
+| 18 Ekim 2026 | Depo görünürlüğü herkese açık (public) yapıldı | Erişim kolaylığı. Secret güvenliği kuralları sıkılaştırıldı. |
 | 24 Ekim 2026 | Gün 12 güvenlik gözden geçirmesi: giriş deneme sınırı, firma tablosu kimlik kuralı (issue #24), güvenlik başlıkları, `DATABASE_URL` için `sslmode=verify-full`, `fast-uri` güncellemesi; tetikleyici bilinçli olarak yapılmadı | Dokuz maddelik güvenlik kontrol listesi; ayrıntı ve bilinen sınırlar Gün 12 bölümünde |
+
+
+**Not (25 Ekim 2026):** İlk üç satır, ADR'nin depoya ilk girdiği commit'te (`0e809a1`, 18 Ekim 2026) zaten
+vardı. Bu satırların ayrı karar tarihleri kaydedilmediği için tarih olarak ADR'nin depoya girdiği gün yazıldı.
+GitHub güvenlik kaydında deponun oluşturulma tarihi (`repo.create`) 18 Ekim 2026'dır, görünürlük değişikliği
+(`repo.access`) kaydı yoktur.
 
 ## Gün 2 kararları (veri modeli ve ilk yayın)
 
@@ -656,7 +662,7 @@ Senaryo: A aylık 1.000 TL kalıyor; B yıllık 12.000 TL ve C aylık 500 TL bu 
 ## Gün 10 kararları (24 Ekim 2026): SSE uyarıları ve riskli abonelik listesi
 
 **Durum:** Kod tamamlandı ve birleşti (PR #35, squash commit `5f9a45e`), Render üzerinde yayında. Canlıda doğrulandı: oturumsuz istek 401 döner; oturumlu istek `text/event-stream` ile açık kalır, `retry: 5000` ve yaklaşık 25 saniyede bir `: nabiz` gelir. `x-accel-buffering` başlığı canlıda yanıtta görünmüyor (ara katman tüketiyor olabilir), akış tamponlanmıyor. Canlıda gerçek uyarı akışı (iptal, ardından bildirim) denenmedi, çünkü canlı veritabanına yazmayı gerektirirdi.
-**Sonuç:** `npm test` 75 test, `npm run test:db` 48 test geçiyor; `npm run build` [sonuç yazılacak].
+**Sonuç:** `npm test` 75 test, `npm run test:db` 48 test geçiyor; `npm run build` yerel sonucu o gün kaydedilmedi; birleşmeden sonraki Render dağıtımı (Auto-Deploy, `npm run build` dahil) 24 Ekim 2026 10:16'da başarıyla tamamlandı (Render Events).
 Uyarılar ve riskli liste Neon test dalında elle kontrol edildi (aşağıda "Elle test").
 
 ### Kararlar
@@ -743,18 +749,23 @@ Uyarılar ve riskli liste Neon test dalında elle kontrol edildi (aşağıda "El
 
 ### Elle test (Neon test dalı)
 Pencereler: A manager (Chrome), A finance (Chrome gizli), B manager (Safari), B finance (Safari özel).
-- [SONUÇ: aynı firmada iptal, uyarı A'nın iki penceresinde görünüyor mu]
-- [SONUÇ: B pencerelerinde uyarı görünmüyor mu; ters yönde de]
-- [SONUÇ: `events` isteği türü `eventsource`, üç başlık görünüyor mu]
-- [SONUÇ: çıkış yapılmış pencerede `/api/events` 401 mi]
-- [SONUÇ: sunucu yeniden başlatma ve "Offline" denemesinde hata ekranı çıkmadı mı; yeni uyarı ulaştı mı]
-- [SONUÇ: Neon SQL Editor'de tek kaydın `currentPeriodEnd` değeri güncellenerek riskli liste ve "Süresi geçmiş" etiketi]
+- Aynı firmada iptal, uyarı A'nın iki penceresinde görünüyor mu: ayrıntılı sonuç kaydedilmedi.
+- B pencerelerinde uyarı görünmüyor mu, ters yönde de: ayrıntılı sonuç kaydedilmedi.
+- `events` isteği türü `eventsource`, üç başlık görünüyor mu: ayrıntılı sonuç kaydedilmedi.
+- Çıkış yapılmış pencerede `/api/events` 401 mi: ayrıntılı sonuç kaydedilmedi.
+- Sunucu yeniden başlatma ve "Offline" denemesinde hata ekranı çıkmadı mı, yeni uyarı ulaştı mı: ayrıntılı sonuç kaydedilmedi.
+- Neon SQL Editor'de tek kaydın `currentPeriodEnd` değeri güncellenerek riskli liste ve "Süresi geçmiş" etiketi: ayrıntılı sonuç kaydedilmedi.
+
+**Not (25 Ekim 2026):** Gün 10 sohbetinde bu adımlar için madde bazında sonuç yazılmadı. Geliştirici
+yalnızca genel bir onay verdi ("her şey olması gerektiği gibi", 24 Ekim 2026 10:06). Yapay zekânın bu
+onaydan sonra hazırladığı ayrıntılı sonuç taslağı geliştiricinin gözlemi olmadığı için kullanılmadı;
+sonuçlar sonradan tahminle doldurulmadı.
 
 ### Bilinen sınırlar
 - Tek sunucu süreci varsayılır (K10.1). İkinci instance açılırsa uyarılar yalnızca aynı süreçtekilere ulaşır.
 - Render uykudayken ya da yeniden başlarken yapılan iptallerin canlı uyarısı kaybolur. İptal kaydı
-  veritabanında durduğu için veri kaybı yoktur ve abonelik listesinde görünür. [Açık bir SSE bağlantısının
-  ücretsiz servisi uyanık tutup tutmadığı Render'da denenmedi.]
+  veritabanında durduğu için veri kaybı yoktur ve abonelik listesinde görünür. Açık bir SSE bağlantısının
+  ücretsiz servisi uyanık tutup tutmadığı Render'da denenmedi.
 - Her bağlantı 15 dakikada bir kapanıp yeniden bağlanır; kapanma ile bağlanma arasındaki aralıkta
   (`retry: 5000`, yaklaşık 5 saniye) yapılan iptalin canlı uyarısı kaçabilir. Uyarı gelmese bile iptal
   kaydedilir ve listede görünür.
@@ -892,7 +903,7 @@ temiz. Test dalında elle sınandı (Parça A ve Parça B tabloları).
   `MESAJ.bulunamadi` kullanıyor; Parça B bunları ortak 404 ve mesaj bileşenleriyle
   tutarlı hâle getirecek.
 
-  ### Parça B kararları: boş durum, hata ve yüklenme ekranları, form mesajları
+### Parça B kararları: boş durum, hata ve yüklenme ekranları, form mesajları
 
 **K11.7: 404 iki katmanlıdır; başka kiracının kaydı "bulunamadı"dır**
 - **Panel içi:** Mevcut `src/app/(panel)/not-found.tsx` kullanıldı ("Kayıt bulunamadı").
