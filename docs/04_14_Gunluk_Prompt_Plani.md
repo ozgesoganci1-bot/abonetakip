@@ -696,7 +696,7 @@ B) README: Proje özeti, canlı adres, demo hesaplar, teknoloji,
    formülleri, mimari özet (ADR bağlantısı), test çalıştırma, bilinen
    sınırlar (Render web servisi uyku süresi, Neon uyanma gecikmesi).
 
-C) Belgeler: docs/ içindeki proje önerisi ve ADR'de değişen bir yer
+C) Belgeler: docs/ içindeki ADR'de değişen bir yer
    varsa önerilen düzeltmeleri listele. Prompt Günlüğü için günlük
    özet tablosunu doldurmam için sorular sor.
 
